@@ -6,7 +6,7 @@ Source of truth for how BRIVIO looks. Extracted from the reference images in thi
 
 | File | What it shows | Used for |
 | --- | --- | --- |
-| `01-landing-hero.webp` | "Synro" creator-platform landing page: kraft-paper background, heavy wide uppercase headline, orange split CTA, photo card with black label and rotating blue stamp, "upload your content" ticket card with progress rows, black card with coloured chips | Whole visual language; Home page layout |
+| `01-landing-hero.webp` | Third-party creator-platform landing page: kraft-paper background, heavy wide uppercase headline, orange split CTA, photo card with black label and rotating blue stamp, "upload your content" ticket card with progress rows, black card with coloured chips | Whole visual language; Home page layout |
 
 This is the **only** reference so far. It is a third-party design used as a style guide: we take the look, not its
 copy, logo or photos. Add further references here as `02-…`, `03-…` and extend the table.
@@ -67,17 +67,23 @@ Import from `../components/ui`.
 
 | Page | Status | Reference |
 | --- | --- | --- |
-| Home | Restyled | `01-landing-hero.webp` (hero, pillars row, black chip card, ticket card) |
-| Creators list, Creator profile, Portfolio viewer, Login, Brief view, Brief list | Restyled | No dedicated reference; built from the tokens and components above |
+| Home | Built | `01-landing-hero.webp` (hero, pillars row, black chip card, ticket card) |
+| Creators list, Login, Brief view, Brief list | Built | No dedicated reference; built from the tokens and components above |
+| Creator profile (`/creators/:id`) | Built (Phase 2) | Ink header card, stats row on hairlines, masonry portfolio with `Tabs` filter |
+| Portfolio viewer (`/portfolio/:id`) | Built (Phase 2) | Framed media, sticky cream side panel, numbered workflow timeline, zoom lightbox |
+| Creator onboarding (`/onboarding/creator`) | Built (Phase 2) | Two steps with `Tabs`, toggle chips from the taxonomy, ink AI-suggestion card |
+| Portfolio form (`/portfolio/new`, `/portfolio/:id/edit`) | Built (Phase 2) | Modelled on the reference upload card: ticket card, drag and drop, numbered step rows |
+| Creator dashboard (`/dashboard/creator`) | Built (Phase 2) | Ink summary card, portfolio grid with edit/delete, ticket card for verification requests |
+
+Phase 2 added these shared pieces: `VerificationBadges` (the three trust badges with tooltips), `ToolChips` (tool chips with a
+blue tick when verified), `Lightbox`, and in `components/ui`: `Field`, `Textarea`, `ChipPicker`, `TagInput`, `FileDrop`, `Notice`.
 
 ### Pages not built yet
 
-There is **no dedicated reference image** for any of these. Until one is added, follow the patterns below, all taken
+There is **no dedicated reference image** for these. Until one is added, follow the patterns below, all taken
 from `01-landing-hero.webp`.
 
 | Page | Follow this |
 | --- | --- |
-| Creator onboarding (`/onboarding/creator`) | `PageHeader` + stepped form in cream `Card`s. `Tabs` as the step indicator. Tools, skills and specializations as toggle `Chip`s from `taxonomy.ts`. Orange `Button` only on the final step; `dark` for Next. |
-| Portfolio item form | Model it on the reference's "Upload your content" card: cream `Card ticket`, centred `display` title, drag-and-drop area, then workflow steps as numbered rows (black number square + tool + action), like the "How a piece is made" card on Home. Lime bar for upload progress. |
-| Search filters (`/creators`) | Filter bar under the `PageHeader`: `Input` for search, `Select` for city and price, toggle `Chip`s for tools, specializations and skills. On mobile, collapse into a `dark` "Filters" button that opens an ink panel like the mobile menu. Show the result count as an ink `Badge`. |
-| Brief form (`/briefs/new`) | Two columns on desktop: form sections in cream `Card`s on the left, and a sticky ink `Card` on the right summarising the brief and commercial-use rights (same style as the rights card on the brief view). Usage platforms and aspect ratios as toggle `Chip`s. |
+| Search filters (`/creators`) | Filter bar under the `PageHeader`: `Input` for search, `Select` for city and price, `ChipPicker` for tools, specializations and skills. On mobile, collapse into a `dark` "Filters" button that opens an ink panel like the mobile menu. Show the result count as an ink `Badge`. |
+| Brief form (`/briefs/new`) | Same building blocks as the portfolio form. Two columns on desktop: form sections in cream `Card`s on the left, and a sticky ink `Card` on the right summarising the brief and commercial-use rights (same style as the rights card on the brief view). Usage platforms and aspect ratios with `ChipPicker`. |

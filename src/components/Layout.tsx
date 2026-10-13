@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { useSession } from '../lib/useSession'
+import { useAuth } from '../lib/useAuth'
 import { ArrowIcon, Button } from './ui'
 
-const LINKS = [
+const BASE_LINKS = [
   { to: '/', label: 'Home' },
   { to: '/creators', label: 'Discover creators' },
   { to: '/briefs/new', label: 'Create brief' },
 ]
+const CREATOR_LINK = { to: '/dashboard/creator', label: 'My dashboard' }
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `text-[15px] font-medium transition-colors underline-offset-8 decoration-2 decoration-brand ${
@@ -24,7 +25,7 @@ export function Logo({ className = '' }: { className?: string }) {
 }
 
 export default function Layout() {
-  const { session } = useSession()
+  const { session, role } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
@@ -36,6 +37,7 @@ export default function Layout() {
     navigate('/')
   }
 
+  const links = role === 'creator' ? [...BASE_LINKS, CREATOR_LINK] : BASE_LINKS
   const authButton = session ? (
     <Button variant="dark" onClick={logout} icon={<ArrowIcon />}>Log out</Button>
   ) : (
@@ -47,8 +49,8 @@ export default function Layout() {
       <header className="relative z-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-4">
           <Logo />
-          <nav className="hidden md:flex items-center gap-9" aria-label="Main">
-            {LINKS.map((l) => <NavLink key={l.to} to={l.to} end className={navClass}>{l.label}</NavLink>)}
+          <nav className="hidden md:flex items-center gap-6 lg:gap-9" aria-label="Main">
+            {links.map((l) => <NavLink key={l.to} to={l.to} end className={navClass}>{l.label}</NavLink>)}
           </nav>
           <div className="hidden md:block">{authButton}</div>
           <button
@@ -64,7 +66,7 @@ export default function Layout() {
         </div>
         {open && (
           <nav className="md:hidden absolute inset-x-4 top-[4.75rem] rounded-card bg-ink text-cream p-5 shadow-card flex flex-col gap-1" aria-label="Mobile">
-            {LINKS.map((l) => (
+            {links.map((l) => (
               <NavLink key={l.to} to={l.to} end className={({ isActive }) => `display text-lg py-2.5 ${isActive ? 'text-brand' : ''}`}>
                 {l.label}
               </NavLink>
@@ -88,12 +90,14 @@ export default function Layout() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 flex flex-col sm:flex-row gap-6 sm:items-center sm:justify-between">
           <div>
             <Logo className="text-cream" />
-            <p className="mt-2 text-sm">AI creators for brands. Sample data shown for demo purposes.</p>
+            <p className="mt-2 text-sm">BRIVIO connects AI creators with brands. Sample data shown for demo purposes.</p>
           </div>
           <div className="flex flex-wrap gap-x-7 gap-y-2 text-sm font-medium">
             <Link to="/creators" className="hover:text-cream">Discover creators</Link>
             <Link to="/briefs/new" className="hover:text-cream">Create brief</Link>
-            <Link to="/onboarding/creator" className="hover:text-cream">Join as creator</Link>
+            <Link to={role === 'creator' ? '/dashboard/creator' : '/onboarding/creator'} className="hover:text-cream">
+              {role === 'creator' ? 'Creator dashboard' : 'Join as creator'}
+            </Link>
           </div>
         </div>
       </footer>

@@ -3,7 +3,8 @@
 **An AI-native marketplace that connects AI creators — AI filmmakers, animators and generative artists — with brands.**
 
 Brands discover creators, browse AI portfolios that show the exact tools, models and workflows behind each piece,
-and publish creative briefs with clear format, style and commercial-use rights.
+and publish creative briefs with clear format, style and commercial-use rights. Creators build a profile, publish
+portfolio pieces with their workflow, and request verification badges.
 
 ## Stack
 
@@ -15,23 +16,42 @@ and publish creative briefs with clear format, style and commercial-use rights.
 | AI | Gemini via `@google/genai` (chat model from `GEMINI_MODEL`, embeddings: `gemini-embedding-001` @ 768 dims) |
 | Hosting | Vercel (free tier) |
 
+## Pages
+
+| Route | Who | What |
+| --- | --- | --- |
+| `/` | Public | Landing page and featured creators |
+| `/creators` | Public | All creators |
+| `/creators/:id` | Public | Creator profile: verification summary, stats, chips, filterable portfolio |
+| `/portfolio/:id` | Public | Portfolio viewer: media, details, "Made with", workflow timeline, more from the creator |
+| `/login` | Public | Log in, create an account, or try a demo account |
+| `/onboarding/creator` | Creators | Create or edit the creator profile (with AI bio polish) |
+| `/dashboard/creator` | Creators | Profile summary, portfolio management, verification requests |
+| `/portfolio/new`, `/portfolio/:id/edit` | Owner | Add or edit a portfolio piece (upload, workflow builder, AI description) |
+| `/briefs/new`, `/briefs/:id` | Logged in | Brief list and brief view (brief builder comes in a later phase) |
+
 ## Project layout
 
 ```
 src/
-  pages/        Route components (Home, Creators, CreatorProfile, PortfolioViewer, Brief*, Login, onboarding)
-  components/   Layout, cards, shared UI
-  lib/          supabase.ts (browser client), taxonomy.ts (fixed lists), types, formatting
+  pages/          Route components
+  components/     Layout, cards, VerificationBadges, ToolChips, Lightbox
+  components/ui/  Design-system components (see docs/design/README.md)
+  lib/            supabase.ts (browser client), taxonomy.ts (fixed lists), auth, uploads, AI client
 api/
-  ai/health.ts  GET /api/ai/health — checks the Gemini key + model
-  _lib/         Server-only helpers (Gemini client, retry, embeddings). Underscore = not deployed as a route.
+  ai/health.ts         GET  /api/ai/health        — checks the Gemini key + model
+  ai/polish-bio.ts     POST /api/ai/polish-bio    — improves a creator bio
+  ai/describe-item.ts  POST /api/ai/describe-item — writes a portfolio description
+  _lib/                Server-only helpers. Underscore = not deployed as a route.
 supabase/
-  schema.sql    Tables, indexes, RLS policies, new-user trigger
-  storage.sql   Storage buckets + policies
+  schema.sql      Tables, indexes, RLS policies, new-user trigger
+  storage.sql     Storage buckets + policies
+  migrations/     Changes made after the first setup; run in order
 scripts/
-  seed.ts       Sample data (npm run seed)
-  embed.ts      Fill embeddings (npm run embed)
-  list-models.ts  List embedding models your key can use (npm run models)
+  seed.ts          Sample data (npm run seed)
+  mirror-media.ts  Copy placeholder images into Supabase Storage (npm run mirror-media)
+  embed.ts         Fill embeddings (npm run embed)
+  list-models.ts   List embedding models your key can use (npm run models)
 docs/
 ```
 
@@ -52,23 +72,29 @@ docs/
    | `GEMINI_MODEL` | server | `gemini-flash-latest` |
 
    Only `VITE_*` variables reach the browser. Never prefix secrets with `VITE_`.
-3. **Database** — in the Supabase SQL editor, run `supabase/schema.sql`, then `supabase/storage.sql`.
+3. **Database** — in the Supabase SQL editor, run in this order:
+   1. `supabase/schema.sql`
+   2. `supabase/storage.sql`
+   3. every file in `supabase/migrations/`, lowest number first
 4. **Sample data**
    ```bash
    npm run seed
    ```
-   Use `npm run seed -- --dry-run` to preview the generated data without touching the database.
+   The seed copies its placeholder images into Supabase Storage as it goes. Use `npm run seed -- --dry-run` to preview
+   the generated data without touching the database.
 5. **Embeddings**
    ```bash
    npm run models
    npm run embed
    ```
-   `models` confirms the embedding model is available to your key; `embed` fills any missing vectors (safe to re-run).
+   `models` confirms the embedding model is available to your key; `embed` fills any missing vectors. It is safe to
+   re-run, and worth re-running after creators edit profiles or portfolio pieces (edits clear the old vector).
 6. **Run locally**
    ```bash
    npm run dev
    ```
-   The `/api` routes run on Vercel. To test them locally use `npx vercel dev` instead of `npm run dev`.
+   The dev server also serves the `/api` routes (a small dev-only plugin in `vite.config.ts`), so the AI buttons work
+   locally without `vercel dev`.
 
 ## Sample data
 
@@ -81,8 +107,16 @@ the demo users' data) and inserts fresh ones:
 - Demo accounts: `demo.brand@brivio.app` and `demo.creator@brivio.app` (password `BrivioDemo123!`), also available via the
   **Try as brand / Try as creator** buttons on `/login`
 
-All creators, clients and brands are fictional. Portfolio media uses placeholder images from picsum.photos and
-avatars from DiceBear.
+All creators, clients and brands are fictional. Images are placeholders (originally from picsum.photos and DiceBear)
+stored in the project's own `portfolio-media` bucket, so the app does not depend on those sites at runtime.
+`npm run mirror-media` re-copies anything that still points outside Storage and reports what is left.
+
+## AI features
+
+- **Polish my bio** (onboarding) and **Describe this piece** (portfolio form) call `/api/ai/*`. Both need a logged-in user.
+- The routes never crash the UI: a missing key, a rate limit (429) or an outage comes back as a short message next to the button.
+- If `GEMINI_MODEL` is overloaded or does not answer within 8 seconds, the routes fall back to `gemini-flash-lite-latest`
+  (override with an optional `GEMINI_FALLBACK_MODEL` variable). `/api/ai/health` reports which model answered.
 
 ## Deploy (Vercel)
 

@@ -10,7 +10,8 @@
     "typecheck": "tsc -b",
     "seed": "tsx scripts/seed.ts",
     "embed": "tsx scripts/embed.ts",
-    "models": "tsx scripts/list-models.ts"
+    "models": "tsx scripts/list-models.ts",
+    "mirror-media": "tsx scripts/mirror-media.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

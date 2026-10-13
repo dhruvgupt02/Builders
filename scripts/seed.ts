@@ -1,6 +1,7 @@
 // npm run seed — idempotent sample data for BRIVIO. Uses the service role key (bypasses RLS).
 import { randomUUID } from 'node:crypto'
 import { adminClient } from './env.js'
+import { isExternalMedia, mirrorMedia } from './media.js'
 import {
   TOOLS, SPECIALIZATIONS, SKILLS, CONTENT_TYPES, ASPECT_RATIOS, USAGE_PLATFORMS,
   type Tool, type Specialization, type Skill, type ContentType, type AspectRatio, type UsagePlatform,
@@ -337,11 +338,12 @@ async function main() {
 
   CREATORS.forEach((c, idx) => {
     const creatorId = randomUUID()
+    const nameSlug = c.name.toLowerCase().replace(/[^a-z]+/g, '-')
     creatorRows.push({
       id: creatorId,
       profile_id: idx === 0 ? creatorUserId : null,
       name: c.name, headline: c.headline, bio: c.bio, city: c.city,
-      avatar_url: `https://api.dicebear.com/9.x/notionists-neutral/svg?seed=${encodeURIComponent(c.name)}&backgroundColor=efeaff`,
+      avatar_url: `https://api.dicebear.com/9.x/notionists-neutral/svg?seed=${encodeURIComponent(c.name)}`,
       specializations: c.specializations, skills: c.skills, tools: c.tools, languages: c.languages,
       price_min: c.price[0], price_max: c.price[1],
       availability: pick(['Available now', 'Available now', 'Booking 2 weeks out', 'Limited availability']),
@@ -362,23 +364,24 @@ async function main() {
       const styles = sample(STYLE_TAGS, int(2, 4))
       const isMotion = ct === 'Video' || ct === 'Animation' || ct === '3D' || ct === 'Audio/music'
       const itemId = randomUUID()
-      const slug = `${creatorId.slice(0, 8)}-${j}`
+      const slug = `${nameSlug}-${j}`
       items.push({ id: itemId, tools: steps, client })
       itemRows.push({
         id: itemId, creator_id: creatorId,
         title: `${subject} — ${format}`,
-        description: `A ${styles.slice(0, 2).join(', ')} ${format} for ${client ?? 'a ' + subject.toLowerCase() + ' concept'}, made with ${steps.join(', ')}.`,
+        description: `${/^[aeiou]/.test(styles[0]) ? "An" : "A"} ${styles.slice(0, 2).join(', ')} ${format} for ${client ?? 'a ' + subject.toLowerCase() + ' concept'}, made with ${steps.join(', ')}.`,
         media_type: 'image',
         media_url: `https://picsum.photos/seed/brivio-${slug}/${w}/${h}`,
         thumbnail_url: `https://picsum.photos/seed/brivio-${slug}/${Math.round(w / 2)}/${Math.round(h / 2)}`,
         content_type: ct, aspect_ratio: ar,
-        duration_sec: isMotion ? pick([10, 15, 20, 30, 45, 60, 90]) : null,
+        duration_sec: isMotion ? (format.startsWith('30s') ? 30 : pick([10, 15, 20, 30, 45, 60, 90])) : null,
         resolution: RESOLUTION[ar], style_tags: styles, tools: steps,
         client_name: client, commercial_use_status: status,
         created_at: new Date(baseTime + idx * 86400000 + j * 60000).toISOString(),
       })
       steps.forEach((tool, k) => stepRows.push({
         id: randomUUID(), portfolio_item_id: itemId, step_order: k + 1, tool, action: pick(ACTIONS[tool]), note: pick(NOTES),
+        step_media_url: k === 0 ? `https://picsum.photos/seed/brivio-step-${slug}/800/450` : null,
       }))
     })
 
@@ -389,7 +392,7 @@ async function main() {
     const by = pick(['ai', 'manual'] as const)
     const v = (type: 'tool' | 'workflow' | 'past_work', label: string, itemId: string | null, status: 'verified' | 'pending' | 'rejected') => ({
       id: randomUUID(), creator_id: creatorId, portfolio_item_id: itemId, type, label,
-      evidence_url: `https://picsum.photos/seed/evidence-${creatorId.slice(0, 8)}-${type}/800/600`,
+      evidence_url: `https://picsum.photos/seed/evidence-${nameSlug}-${type}/800/600`,
       status, verified_by: status === 'pending' ? null : by,
       reason: status === 'verified' ? 'Evidence matches the claimed work' : status === 'rejected' ? 'Evidence was unclear' : null,
     })
@@ -406,6 +409,21 @@ async function main() {
       )
     }
   })
+
+  // Copy placeholder images into Supabase Storage and store those URLs, so the app does not depend on
+  // picsum/dicebear at runtime. Anything that fails to copy keeps its source URL; `npm run mirror-media` retries it.
+  if (!DRY_RUN) {
+    const rows = [creatorRows, itemRows, stepRows, verificationRows].flat() as Record<string, unknown>[]
+    const fields = ['avatar_url', 'media_url', 'thumbnail_url', 'step_media_url', 'evidence_url']
+    try {
+      const sources = rows.flatMap((r) => fields.map((f) => r[f] as string | null | undefined)).filter(isExternalMedia)
+      const { mirrored, failed } = await mirrorMedia(db, sources)
+      for (const r of rows) for (const f of fields) r[f] = mirrored.get(r[f] as string) ?? r[f]
+      if (failed.length) console.warn(`${failed.length} images were not copied; run "npm run mirror-media" to retry.`)
+    } catch (err) {
+      console.warn(`Media was not copied to Storage (${(err as Error).message}); run "npm run mirror-media" afterwards.`)
+    }
+  }
 
   await insertChunked('creators', creatorRows)
   await insertChunked('portfolio_items', itemRows)

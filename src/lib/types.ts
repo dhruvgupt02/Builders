@@ -1,14 +1,21 @@
 import type { CommercialUseStatus } from './taxonomy'
 
+export type VerificationType = 'tool' | 'workflow' | 'past_work'
+
 export interface Verification {
   id: string
-  type: 'tool' | 'workflow' | 'past_work'
+  type: VerificationType
   label: string | null
   status: 'pending' | 'verified' | 'rejected'
+  portfolio_item_id?: string | null
+  evidence_url?: string | null
+  reason?: string | null
+  created_at?: string
 }
 
 export interface Creator {
   id: string
+  profile_id?: string | null
   name: string
   headline: string | null
   bio: string | null
@@ -50,5 +57,8 @@ export interface PortfolioItem {
   client_name: string | null
   commercial_use_status: CommercialUseStatus | null
   workflow_steps?: WorkflowStep[]
-  creators?: Pick<Creator, 'id' | 'name' | 'avatar_url' | 'city'> | null
+  creators?: (Pick<Creator, 'id' | 'name' | 'avatar_url' | 'city'> & Partial<Pick<Creator, 'headline' | 'profile_id' | 'verifications'>>) | null
 }
+
+/** The verification fields every public page selects. */
+export const VERIFICATION_COLUMNS = 'id,type,label,status,portfolio_item_id'

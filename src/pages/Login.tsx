@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/useSession'
-import { ArrowIcon, Button, Card, Input } from '../components/ui'
+import { ArrowIcon, Button, Card, Input, Notice, Select, Tabs } from '../components/ui'
 
 // Public demo accounts created by scripts/seed.ts. Safe to ship: they only hold sample data.
 const DEMO_PASSWORD = 'BrivioDemo123!'
@@ -11,41 +11,70 @@ const DEMO_USERS = {
   creator: 'demo.creator@brivio.app',
 } as const
 
+const MODES = [
+  { id: 'login', label: 'Log in' },
+  { id: 'signup', label: 'Create account' },
+] as const
+const ROLES = [
+  { value: 'brand', label: 'A brand looking for AI creators' },
+  { value: 'creator', label: 'An AI creator' },
+]
+
 export default function Login() {
   const navigate = useNavigate()
   const { session } = useSession()
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [name, setName] = useState('')
+  const [role, setRole] = useState('brand')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
-  async function signIn(e: string, p: string, key: string, redirect: string) {
+  /** Creators land on their dashboard (or onboarding if they have no profile yet); brands on discovery. */
+  async function landingFor(userId: string | undefined, fallbackRole?: string) {
+    if (!userId) return '/creators'
+    const [{ data: profile }, { data: creator }] = await Promise.all([
+      supabase.from('profiles').select('role').eq('id', userId).maybeSingle(),
+      supabase.from('creators').select('id').eq('profile_id', userId).limit(1).maybeSingle(),
+    ])
+    if ((profile?.role ?? fallbackRole) !== 'creator') return '/creators'
+    return creator ? '/dashboard/creator' : '/onboarding/creator'
+  }
+
+  async function signIn(e: string, p: string, key: string, redirect?: string) {
     setBusy(key)
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({ email: e, password: p })
-    setBusy(null)
-    if (error) setError(error.message)
-    else navigate(redirect)
-  }
-
-  function onSubmit(ev: FormEvent) {
-    ev.preventDefault()
-    signIn(email, password, 'form', '/creators')
-  }
-
-  async function signInDemoCreator() {
-    setBusy('creator')
-    setError(null)
-    const { error } = await supabase.auth.signInWithPassword({ email: DEMO_USERS.creator, password: DEMO_PASSWORD })
+    setInfo(null)
+    const { data, error } = await supabase.auth.signInWithPassword({ email: e, password: p })
     if (error) {
       setBusy(null)
-      setError(error.message)
-      return
+      return setError(error.message === 'Invalid login credentials' ? 'That email and password do not match an account.' : error.message)
     }
-    const { data } = await supabase.auth.getUser()
-    const { data: c } = await supabase.from('creators').select('id').eq('profile_id', data.user?.id ?? '').maybeSingle()
+    const to = redirect ?? (await landingFor(data.user?.id))
     setBusy(null)
-    navigate(c ? `/creators/${c.id}` : '/creators')
+    navigate(to)
+  }
+
+  async function onSubmit(ev: FormEvent) {
+    ev.preventDefault()
+    if (mode === 'login') return signIn(email, password, 'form')
+
+    setError(null)
+    setInfo(null)
+    if (name.trim().length < 2) return setError('Enter your name.')
+    if (password.length < 8) return setError('Choose a password with at least 8 characters.')
+    setBusy('form')
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { role, name: name.trim() } } })
+    setBusy(null)
+    if (error) return setError(error.message)
+    // With email confirmation switched on in Supabase there is no session until the link is clicked.
+    if (!data.session) {
+      setMode('login')
+      return setInfo('Account created. Check your email for a confirmation link, then log in.')
+    }
+    navigate(await landingFor(data.user?.id, role))
   }
 
   return (
@@ -57,37 +86,38 @@ export default function Login() {
           Try the marketplace in one click with a demo account, or use your own.
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
-          <Button
-            size="lg"
-            icon={<ArrowIcon />}
-            disabled={busy !== null}
-            onClick={() => signIn(DEMO_USERS.brand, DEMO_PASSWORD, 'brand', '/briefs/new')}
-          >
+          <Button size="lg" icon={<ArrowIcon />} disabled={busy !== null} onClick={() => signIn(DEMO_USERS.brand, DEMO_PASSWORD, 'brand', '/briefs/new')}>
             {busy === 'brand' ? 'Signing in…' : 'Try as brand'}
           </Button>
-          <Button size="lg" variant="dark" icon={<ArrowIcon />} disabled={busy !== null} onClick={signInDemoCreator}>
+          <Button size="lg" variant="dark" icon={<ArrowIcon />} disabled={busy !== null} onClick={() => signIn(DEMO_USERS.creator, DEMO_PASSWORD, 'creator')}>
             {busy === 'creator' ? 'Signing in…' : 'Try as creator'}
           </Button>
         </div>
       </div>
 
-      <Card ticket notchY="5.25rem" className="!p-6 sm:!p-8">
-        <h2 className="display text-xl">Your account</h2>
-        {session ? (
-          <p className="mt-2 text-sm text-ink-soft">
-            Logged in as <span className="font-semibold text-ink break-all">{session.user.email}</span>
-          </p>
-        ) : (
-          <p className="mt-2 text-sm text-ink-soft">Email and password</p>
-        )}
-        <form onSubmit={onSubmit} className="mt-8 pt-6 border-t border-dashed border-ink/25 space-y-4">
+      <Card ticket notchY="5.75rem" className="!p-6 sm:!p-8">
+        <Tabs tabs={MODES} active={mode} onChange={(m) => { setMode(m); setError(null); setInfo(null) }} />
+        <p className="mt-3 text-sm text-ink-soft">
+          {session ? <>Logged in as <span className="font-semibold text-ink break-all">{session.user.email}</span></> : mode === 'login' ? 'Use your email and password.' : 'Free for brands and creators.'}
+        </p>
+        <form onSubmit={onSubmit} className="mt-7 pt-6 border-t border-dashed border-ink/25 space-y-4">
+          {mode === 'signup' && (
+            <>
+              <Input label="Name" required value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+              <Select label="I am" options={ROLES} value={role} onChange={(e) => setRole(e.target.value)} />
+            </>
+          )}
           <Input label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@brand.com" />
-          <Input label="Password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          <Input
+            label="Password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'} hint={mode === 'signup' ? 'At least 8 characters.' : undefined}
+          />
           <Button type="submit" variant="dark" full disabled={busy !== null}>
-            {busy === 'form' ? 'Signing in…' : 'Log in'}
+            {busy === 'form' ? 'One moment…' : mode === 'login' ? 'Log in' : 'Create account'}
           </Button>
         </form>
-        {error && <p className="mt-4 rounded-btn bg-brand/10 px-3 py-2 text-sm font-medium text-brand-dark" role="alert">{error}</p>}
+        {info && <div className="mt-4"><Notice tone="success">{info}</Notice></div>}
+        {error && <div className="mt-4"><Notice tone="error">{error}</Notice></div>}
       </Card>
     </div>
   )
