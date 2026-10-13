@@ -52,6 +52,8 @@ scripts/
   mirror-media.ts  Copy placeholder images into Supabase Storage (npm run mirror-media)
   embed.ts         Fill embeddings (npm run embed)
   list-models.ts   List embedding models your key can use (npm run models)
+  migrate.ts       Apply pending SQL migrations (npm run migrate)
+  verify-migrations.ts  Check migration policies and behaviour (npm run migrate:verify)
 docs/
 ```
 
@@ -72,10 +74,21 @@ docs/
    | `GEMINI_MODEL` | server | `gemini-flash-latest` |
 
    Only `VITE_*` variables reach the browser. Never prefix secrets with `VITE_`.
-3. **Database** — in the Supabase SQL editor, run in this order:
-   1. `supabase/schema.sql`
-   2. `supabase/storage.sql`
-   3. every file in `supabase/migrations/`, lowest number first
+3. **Database** — in the Supabase SQL editor, run `supabase/schema.sql`, then `supabase/storage.sql`. Then apply the
+   migrations:
+   ```bash
+   npm run migrate
+   ```
+   This runs every file in `supabase/migrations/` that has not been applied yet (each in its own transaction) and
+   records it in a `schema_migrations` table. `npm run migrate -- --status` only lists them, and
+   `npm run migrate:verify` checks that the policies exist and behave correctly.
+
+   It needs one extra variable in `.env`, used only by these scripts (do not add it to Vercel):
+   `SUPABASE_DB_URL` — Supabase dashboard → **Connect** (top bar) → **Connection string** → **Session pooler** → copy
+   the URI and replace `[YOUR-PASSWORD]` with your database password. Use the Session pooler string, not "Direct
+   connection", which only works over IPv6. If the password contains `@ : / # ?`, URL-encode those characters.
+
+   Without it, you can paste the files from `supabase/migrations/` into the SQL editor instead, lowest number first.
 4. **Sample data**
    ```bash
    npm run seed

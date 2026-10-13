@@ -11,11 +11,14 @@
     "seed": "tsx scripts/seed.ts",
     "embed": "tsx scripts/embed.ts",
     "models": "tsx scripts/list-models.ts",
-    "mirror-media": "tsx scripts/mirror-media.ts"
+    "mirror-media": "tsx scripts/mirror-media.ts",
+    "migrate": "tsx scripts/migrate.ts",
+    "migrate:verify": "tsx scripts/verify-migrations.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vercel/node": "^23.0.1",
@@ -29,6 +32,7 @@
   "dependencies": {
     "@google/genai": "^2.29.0",
     "@supabase/supabase-js": "^2.117.3",
+    "pg": "^8.23.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4"
