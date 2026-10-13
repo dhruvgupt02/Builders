@@ -1,45 +1,36 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { MAX_EVIDENCE_MB, uploadFile, validateFile } from '../lib/storage'
 import { useCreatorGate } from '../lib/useCreatorGate'
-import type { Creator, PortfolioItem, Verification, VerificationType } from '../lib/types'
-import { summarizeVerifications, VERIFICATION_INFO } from '../lib/verification'
+import { loadMyEngagements, type Engagement } from '../lib/engagements'
+import type { Creator, PortfolioItem, Verification } from '../lib/types'
 import { formatPriceRange } from '../lib/format'
+import EngagementList from '../components/engagement/EngagementList'
 import PortfolioCard from '../components/PortfolioCard'
-import ToolChips from '../components/ToolChips'
 import VerificationBadges from '../components/VerificationBadges'
-import { ArrowIcon, Avatar, Badge, Button, Card, Field, FileDrop, Notice, PageContainer, Select, Spinner } from '../components/ui'
-
-const TYPE_OPTIONS = (Object.keys(VERIFICATION_INFO) as VerificationType[]).map((value) => ({ value, label: VERIFICATION_INFO[value].label }))
-const STATUS_TONE = { pending: 'muted', verified: 'blue', rejected: 'orange' } as const
-const MIGRATION_HINT = 'Deleting is not switched on for this database yet (run supabase/migrations/003_creator_delete.sql).'
+import VerificationCenter from '../components/VerificationCenter'
+import { ArrowIcon, Avatar, Button, Card, Notice, PageContainer, Spinner } from '../components/ui'
 
 export default function CreatorDashboard() {
   const { gate, userId, creatorId } = useCreatorGate()
   const [creator, setCreator] = useState<Creator | null>(null)
   const [items, setItems] = useState<PortfolioItem[] | null>(null)
   const [verifications, setVerifications] = useState<Verification[]>([])
+  const [engagements, setEngagements] = useState<Engagement[]>([])
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [notice, setNotice] = useState<{ tone: 'error' | 'success'; text: string } | null>(null)
 
-  // Verification request form
-  const [vType, setVType] = useState<VerificationType>('tool')
-  const [vTarget, setVTarget] = useState('')
-  const [vFile, setVFile] = useState<File | null>(null)
-  const [vError, setVError] = useState<string | null>(null)
-  const [vBusy, setVBusy] = useState(false)
-
   const load = useCallback(async () => {
     if (!creatorId) return
-    const [c, p, v] = await Promise.all([
+    const [c, p, v, e] = await Promise.all([
       supabase.from('creators').select('*').eq('id', creatorId).maybeSingle(),
       supabase.from('portfolio_items').select('*').eq('creator_id', creatorId).order('created_at', { ascending: false }),
       supabase.from('verifications').select('*').eq('creator_id', creatorId).order('created_at', { ascending: false }),
+      loadMyEngagements(),
     ])
     setCreator(c.data as Creator | null)
     setItems((p.data as PortfolioItem[]) ?? [])
     setVerifications((v.data as Verification[]) ?? [])
+    setEngagements(e.filter((x) => x.creator_id === creatorId))
   }, [creatorId])
 
   useEffect(() => {
@@ -49,57 +40,16 @@ export default function CreatorDashboard() {
   if (gate) return gate
   if (!creator || items === null) return <Spinner label="Loading your dashboard…" />
 
-  const summary = summarizeVerifications(verifications)
-
   async function deleteItem(item: PortfolioItem) {
     setConfirmDelete(null)
     const { data, error } = await supabase.from('portfolio_items').delete().eq('id', item.id).select('id')
-    if (error) return setNotice({ tone: 'error', text: `"${item.title}" could not be deleted: ${error.message}` })
-    if (!data?.length) return setNotice({ tone: 'error', text: `"${item.title}" was not deleted. ${MIGRATION_HINT}` })
+    if (error || !data?.length) return setNotice({ tone: 'error', text: `"${item.title}" could not be deleted. ${error?.message ?? ''}` })
     setNotice({ tone: 'success', text: `"${item.title}" was deleted.` })
     load()
   }
 
-  async function withdraw(v: Verification) {
-    const { data, error } = await supabase.from('verifications').delete().eq('id', v.id).select('id')
-    if (error || !data?.length) return setNotice({ tone: 'error', text: `The request was not withdrawn. ${error?.message ?? MIGRATION_HINT}` })
-    setNotice({ tone: 'success', text: 'Verification request withdrawn.' })
-    load()
-  }
-
-  async function requestVerification(ev: FormEvent) {
-    ev.preventDefault()
-    setVError(null)
-    if (!vTarget) return setVError(vType === 'tool' ? 'Choose the tool you want verified.' : 'Choose the portfolio piece this is about.')
-    if (!vFile) return setVError('Attach evidence: a screenshot or PDF that backs up the claim.')
-    const item = vType === 'tool' ? null : items!.find((i) => i.id === vTarget)
-    const label = item ? item.title : vTarget
-    if (verifications.some((v) => v.type === vType && v.status !== 'rejected' && (item ? v.portfolio_item_id === item.id : v.label === label)))
-      return setVError('You already have a request or a verification for this.')
-    setVBusy(true)
-    try {
-      const evidenceUrl = await uploadFile('verification-evidence', vFile, userId!)
-      const { error } = await supabase.from('verifications').insert({
-        creator_id: creatorId, portfolio_item_id: item?.id ?? null, type: vType, label, evidence_url: evidenceUrl, status: 'pending',
-      })
-      if (error) throw new Error(error.message)
-      setVFile(null)
-      setVTarget('')
-      setNotice({ tone: 'success', text: 'Verification requested. It will show as pending until it is reviewed.' })
-      load()
-    } catch (err) {
-      setVError(`The request could not be sent: ${(err as Error).message}`)
-    }
-    setVBusy(false)
-  }
-
-  function onEvidence(file: File) {
-    const problem = validateFile(file, ['image', 'pdf'], MAX_EVIDENCE_MB)
-    setVError(problem)
-    if (!problem) setVFile(file)
-  }
-
-  const targetOptions = vType === 'tool' ? creator.tools : items.map((i) => ({ value: i.id, label: i.title }))
+  const invitations = engagements.filter((e) => e.status === 'invited')
+  const active = engagements.filter((e) => e.status !== 'invited')
 
   return (
     <PageContainer>
@@ -124,6 +74,25 @@ export default function CreatorDashboard() {
       </Card>
 
       {notice && <div className="mt-5"><Notice tone={notice.tone}>{notice.text}</Notice></div>}
+
+      {/* Invitations and projects */}
+      <section className="mt-10">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="display text-2xl sm:text-3xl">Invitations and projects</h2>
+            <p className="mt-1 text-sm text-ink-soft">{invitations.length ? `${invitations.length} ${invitations.length === 1 ? 'invitation is' : 'invitations are'} waiting for your reply.` : 'Brands invite you from their brief matches.'}</p>
+          </div>
+          <Button to="/briefs" variant="outline" size="sm">Browse open briefs</Button>
+        </div>
+        {engagements.length === 0 ? (
+          <p className="mt-4 rounded-card border-[1.5px] border-dashed border-line p-5 text-sm text-ink-soft">No invitations yet. A complete profile, a documented workflow and verified tools all raise your match score.</p>
+        ) : (
+          <div className="mt-4 space-y-5">
+            {invitations.length > 0 && <EngagementList engagements={invitations} role="creator" />}
+            {active.length > 0 && <EngagementList engagements={active} role="creator" />}
+          </div>
+        )}
+      </section>
 
       {/* Portfolio */}
       <section className="mt-10">
@@ -167,63 +136,7 @@ export default function CreatorDashboard() {
         )}
       </section>
 
-      {/* Verification */}
-      <section className="mt-12 grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
-        <div className="lg:col-span-3">
-          <h2 className="display text-2xl sm:text-3xl">Verification</h2>
-          <p className="mt-1 text-sm text-ink-soft">{summary.text}</p>
-          <div className="mt-4"><ToolChips tools={creator.tools} verified={summary.verifiedTools} tone="white" /></div>
-
-          {verifications.length === 0 ? (
-            <p className="mt-6 text-sm text-ink-soft">No verification requests yet. Verified creators stand out to brands.</p>
-          ) : (
-            <ul className="mt-6 divide-y divide-line border-y border-line">
-              {verifications.map((v) => (
-                <li key={v.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-wider text-ink-soft">{VERIFICATION_INFO[v.type].short}</p>
-                    <p className="font-semibold break-words">{v.label ?? 'Untitled'}</p>
-                    {v.reason && <p className="mt-0.5 text-sm text-ink-soft">{v.reason}</p>}
-                  </div>
-                  {v.evidence_url && <a href={v.evidence_url} target="_blank" rel="noreferrer" className="text-xs font-bold underline underline-offset-4 hover:text-brand">Evidence</a>}
-                  <Badge tone={STATUS_TONE[v.status]}>{v.status}</Badge>
-                  {v.status === 'pending' && (
-                    <button onClick={() => withdraw(v)} className="text-xs font-bold text-ink-soft underline underline-offset-4 hover:text-brand">Withdraw</button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <Card ticket notchY="4.75rem" className="lg:col-span-2">
-          <h3 className="display text-lg">Request verification</h3>
-          <p className="mt-1 text-sm text-ink-soft">Send evidence and get a badge.</p>
-          <form onSubmit={requestVerification} noValidate className="mt-6 space-y-4 border-t border-dashed border-ink/25 pt-5">
-            <Select
-              label="What to verify" options={TYPE_OPTIONS} value={vType}
-              onChange={(e) => { setVType(e.target.value as VerificationType); setVTarget(''); setVError(null) }}
-              hint={VERIFICATION_INFO[vType].explain}
-            />
-            {vType !== 'tool' && items.length === 0 ? (
-              <Notice>Add a portfolio piece first. <Link to="/portfolio/new" className="underline font-bold">Add one now</Link></Notice>
-            ) : (
-              <Select
-                label={vType === 'tool' ? 'Tool' : 'Portfolio piece'} options={targetOptions} placeholder="Choose…"
-                value={vTarget} onChange={(e) => setVTarget(e.target.value)}
-              />
-            )}
-            <Field as="div" label="Evidence" hint={`Screenshot or PDF, up to ${MAX_EVIDENCE_MB} MB. For a tool: your account or project view.`}>
-              <FileDrop
-                compact accept="image/*,application/pdf" onFile={onEvidence} title="Attach a file" hint={vFile ? `${vFile.name} · ${(vFile.size / 1024 / 1024).toFixed(1)} MB` : 'PNG, JPG or PDF'}
-                preview={vFile && <p className="text-center text-sm font-semibold">✓ File attached</p>}
-              />
-            </Field>
-            {vError && <Notice tone="error">{vError}</Notice>}
-            <Button type="submit" variant="dark" full disabled={vBusy}>{vBusy ? 'Sending…' : 'Request verification'}</Button>
-          </form>
-        </Card>
-      </section>
+      <VerificationCenter creator={creator} items={items} verifications={verifications} userId={userId!} onChange={load} />
     </PageContainer>
   )
 }

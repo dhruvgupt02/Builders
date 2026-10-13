@@ -100,6 +100,7 @@ export default function Layout() {
             <Link to="/creators" className="hover:text-cream">Discover creators</Link>
             <Link to="/briefs/new" className="hover:text-cream">Create brief</Link>
             <Link to="/briefs" className="hover:text-cream">Open briefs</Link>
+            <Link to="/trust" className="hover:text-cream">Trust and badges</Link>
             <Link to={role === 'creator' ? '/dashboard/creator' : '/onboarding/creator'} className="hover:text-cream">
               {role === 'creator' ? 'Creator dashboard' : 'Join as creator'}
             </Link>

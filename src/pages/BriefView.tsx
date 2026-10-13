@@ -87,8 +87,8 @@ export default function BriefView() {
         <aside className="space-y-4 lg:sticky lg:top-6">
           <Card className="!p-5">
             <h2 className="display text-base">Find matching creators</h2>
-            <p className="mt-1 text-sm text-ink-soft">Opens search filtered by this brief: its content types, aspect ratios, required tools and budget, commercial-ready creators only.</p>
-            <div className="mt-4"><Button to={matchingLink(b)} full>Find matching creators</Button></div>
+            <p className="mt-1 text-sm text-ink-soft">{brief.isOwner ? 'Every creator scored against this brief out of 100, with the reasons, and buttons to shortlist or invite.' : 'Opens search filtered by this brief: its content types, aspect ratios, required tools and budget.'}</p>
+            <div className="mt-4"><Button to={brief.isOwner ? `/briefs/${brief.id}/matches` : matchingLink(b)} full>Find matching creators</Button></div>
           </Card>
 
           <Card className="!p-5">

@@ -10,6 +10,10 @@ import BriefEditor from './pages/BriefEditor'
 import BriefsBoard from './pages/BriefsBoard'
 import BrandDashboard from './pages/BrandDashboard'
 import BriefView from './pages/BriefView'
+import BriefMatches from './pages/BriefMatches'
+import EngagementPage from './pages/EngagementPage'
+import ConfirmWork from './pages/ConfirmWork'
+import Trust from './pages/Trust'
 import Login from './pages/Login'
 import CreatorOnboarding from './pages/CreatorOnboarding'
 import NotFound from './pages/NotFound'
@@ -29,7 +33,11 @@ export default function App() {
         <Route path="/briefs/new" element={<BriefEditor key="new" />} />
         <Route path="/briefs/:id/edit" element={<BriefEditor key="edit" />} />
         <Route path="/dashboard/brand" element={<BrandDashboard />} />
+        <Route path="/briefs/:id/matches" element={<BriefMatches />} />
         <Route path="/briefs/:id" element={<BriefView />} />
+        <Route path="/engagements/:id" element={<EngagementPage />} />
+        <Route path="/confirm/:token" element={<ConfirmWork />} />
+        <Route path="/trust" element={<Trust />} />
         <Route path="/login" element={<Login />} />
         <Route path="/onboarding/creator" element={<CreatorOnboarding />} />
         <Route path="*" element={<NotFound />} />

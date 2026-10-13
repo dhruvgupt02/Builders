@@ -167,7 +167,13 @@ export default function PortfolioViewer() {
           <section className="mt-9 border-t border-line pt-7">
             <div className="flex flex-wrap items-center gap-3">
               <h2 className="display text-xl sm:text-2xl">Workflow</h2>
-              {summary.workflowItems.has(item.id) && <Badge tone="blue">✓ Verified</Badge>}
+              {summary.workflowItems.has(item.id) ? (
+                <Badge tone="blue">✓ Verified</Badge>
+              ) : steps.length >= 3 && steps.every((s) => s.step_media_url) ? (
+                // three or more steps, each with an image: documented, but not yet through the AI check
+                <span title="Three or more steps, each with an image. Not yet checked."><Badge tone="ink">Workflow documented</Badge></span>
+              ) : null}
+              <Link to="/trust" className="text-xs font-bold text-ink-soft underline underline-offset-4 hover:text-brand">What does this mean?</Link>
             </div>
             {steps.length === 0 ? (
               <p className="mt-3 text-sm text-ink-soft">No workflow steps were shared for this piece.</p>

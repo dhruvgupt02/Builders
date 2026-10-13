@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { VERIFICATION_COLUMNS, type Creator, type PortfolioItem } from '../lib/types'
 import { summarizeVerifications } from '../lib/verification'
 import { useAuth } from '../lib/useAuth'
 import { formatPriceRange } from '../lib/format'
+import { reasonFromBreakdown, type MatchResult, type MatchRow } from '../lib/matching'
+import ScoreBreakdown, { ScoreBadge } from '../components/match/ScoreBreakdown'
 import PortfolioCard from '../components/PortfolioCard'
 import ToolChips from '../components/ToolChips'
 import VerificationBadges from '../components/VerificationBadges'
@@ -28,6 +30,26 @@ export default function CreatorProfile() {
   const [creator, setCreator] = useState<Creator | null | undefined>(undefined)
   const [items, setItems] = useState<PortfolioItem[]>([])
   const [tab, setTab] = useState('All')
+  // Opened from a brief's matches (?brief=<id>): show how this creator fits that brief.
+  const briefId = useSearchParams()[0].get('brief')
+  const [fit, setFit] = useState<{ row: MatchRow; title: string } | null>(null)
+
+  useEffect(() => {
+    setFit(null)
+    if (!id || !briefId) return
+    let cancelled = false
+    Promise.all([
+      supabase.rpc('brief_matches', { brief_id: briefId, lim: 1, only_creator: id }),
+      supabase.from('briefs').select('title').eq('id', briefId).maybeSingle(),
+    ]).then(([m, b]) => {
+      const row = (m.data as MatchResult | null)?.rows?.[0]
+      // The brief is only readable by people allowed to see it; without it there is nothing to show.
+      if (!cancelled && row && b.data) setFit({ row, title: b.data.title })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [id, briefId])
 
   useEffect(() => {
     if (!id) return
@@ -85,6 +107,27 @@ export default function CreatorProfile() {
           </div>
         </div>
       </Card>
+
+      {/* Fit for the brief this profile was opened from */}
+      {fit && (
+        <Card className="mt-5 !p-5 sm:!p-6">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-6 items-center">
+            <div className="flex items-start gap-4">
+              <ScoreBadge score={fit.row.score} />
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Fit for your brief</p>
+                <h2 className="display mt-1 text-lg leading-tight break-words">{fit.title}</h2>
+                <p className="mt-2 text-sm">{fit.row.reason ?? reasonFromBreakdown(fit.row)}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button size="sm" to={`/briefs/${briefId}/matches`} variant="dark">Back to all matches</Button>
+                  {fit.row.best_item && <Button size="sm" variant="outline" to={`/portfolio/${fit.row.best_item.id}`}>See the closest piece</Button>}
+                </div>
+              </div>
+            </div>
+            <ScoreBreakdown breakdown={fit.row.breakdown} details={fit.row.details} all />
+          </div>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 border-b border-line sm:divide-x divide-line">

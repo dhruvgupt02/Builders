@@ -52,7 +52,8 @@ export async function withRetry<T>(fn: () => Promise<T>, label = 'gemini', baseM
 // short wait, the next model in the chain is started alongside it, and so on. The first good answer wins and the
 // rest are cancelled. A model that fails is skipped for a few minutes.
 
-const DEFAULT_FALLBACKS = ['gemini-flash-lite-latest', 'gemini-3.5-flash', 'gemini-3.1-flash-lite']
+// Ordered by how quickly and reliably they answered when the configured model was down (see docs/decisions.md).
+const DEFAULT_FALLBACKS = ['gemini-3.1-flash-lite', 'gemini-flash-lite-latest', 'gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-3.6-flash']
 
 /** GEMINI_MODEL first, then GEMINI_FALLBACK_MODELS (comma-separated) or the defaults. */
 export function modelChain(): string[] {
@@ -84,7 +85,8 @@ export function generateText(opts: GenerateOptions): Promise<{ text: string; mod
   const now = Date.now()
   const chain = modelChain()
   const ready = chain.filter((m) => (coolingUntil.get(m) ?? 0) <= now)
-  const models = ready.length ? ready : chain // if everything is cooling down, try them all again
+  // Healthy models first; resting ones stay at the end as a last resort rather than being left out.
+  const models = [...ready, ...chain.filter((m) => !ready.includes(m))]
   const contents = opts.parts?.length ? [{ role: 'user', parts: [...opts.parts, { text: opts.prompt }] }] : opts.prompt
 
   return new Promise((resolve, reject) => {

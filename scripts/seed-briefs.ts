@@ -174,7 +174,7 @@ export const SAMPLE_BRANDS: BrandSeed[] = [
 ]
 
 /** Deletes the sample brands (and, through them, their briefs) and inserts them again. Returns the number of briefs. */
-export async function seedBriefs(db: Db, brandUserId: string, dryRun = false): Promise<number> {
+export async function seedBriefs(db: Db, brandUserId: string, dryRun = false, creatorUserId?: string): Promise<number> {
   const ok = (res: { error: { message: string } | null }, what: string) => {
     if (res.error) throw new Error(`${what}: ${res.error.message}`)
   }
@@ -183,6 +183,7 @@ export async function seedBriefs(db: Db, brandUserId: string, dryRun = false): P
     ok(await db.from('brands').delete().eq('profile_id', brandUserId), 'delete demo brand data')
   }
   let count = 0
+  const briefIds = new Map<string, { id: string; deliverables: string[] }>()
   for (const brand of SAMPLE_BRANDS) {
     const brandId = randomUUID()
     if (!dryRun) ok(await db.from('brands').insert({ id: brandId, profile_id: brand.demo ? brandUserId : null, company_name: brand.company_name, category: brand.category, website: brand.website }), 'insert brand')
@@ -196,10 +197,71 @@ export async function seedBriefs(db: Db, brandUserId: string, dryRun = false): P
       if (!dryRun) {
         ok(await db.from('briefs').insert({ id: briefId, brand_id: brandId, ...rows.brief }), 'insert brief')
         ok(await db.from('brief_rights').insert({ brief_id: briefId, ...rows.rights }), 'insert brief rights')
-        ok(await db.from('brief_deliverables').insert(rows.deliverables.map((x) => ({ ...x, brief_id: briefId }))), 'insert brief deliverables')
+        const deliverables = rows.deliverables.map((x) => ({ ...x, id: randomUUID(), brief_id: briefId }))
+        ok(await db.from('brief_deliverables').insert(deliverables), 'insert brief deliverables')
+        briefIds.set(draft.title, { id: briefId, deliverables: deliverables.map((x) => x.id) })
       }
       count++
     }
   }
+  if (!dryRun && creatorUserId) await seedEngagements(db, briefIds, brandUserId, creatorUserId)
   return count
 }
+
+/**
+ * Two sample projects between the demo brand and the demo creator, at different stages, plus one private
+ * shortlist entry, so both demo accounts have something to open:
+ *   1. "Diwali collection launch reel": invited, waiting for the creator's reply
+ *   2. "Product stills for website refresh": delivered, v1 sent back for a revision, v2 waiting for review
+ */
+async function seedEngagements(db: Db, briefs: Map<string, { id: string; deliverables: string[] }>, brandUserId: string, creatorUserId: string) {
+  const ok = (res: { error: { message: string } | null }, what: string) => {
+    if (res.error) throw new Error(`${what}: ${res.error.message}`)
+  }
+  const { data: creator } = await db.from('creators').select('id, name').eq('profile_id', creatorUserId).maybeSingle()
+  const reel = briefs.get('Diwali collection launch reel')
+  const stills = briefs.get('Product stills for website refresh')
+  if (!creator || !reel || !stills) return
+  const { data: media } = await db.from('portfolio_items').select('media_url').eq('creator_id', creator.id).not('media_url', 'is', null).limit(2)
+  const { data: other } = await db.from('creators').select('id').eq('is_sample', true).neq('id', creator.id).contains('tools', ['Kling', 'Midjourney']).limit(1).maybeSingle()
+  const ago = (hours: number) => new Date(Date.now() - hours * 3600000).toISOString()
+  const say = (engagement_id: string, role: 'brand' | 'creator', kind: string, body: string, hours: number) => ({
+    engagement_id, sender_id: role === 'brand' ? brandUserId : creatorUserId, sender_role: role, kind, body, created_at: ago(hours),
+  })
+
+  const invited = randomUUID()
+  const reviewing = randomUUID()
+  ok(await db.from('engagements').insert([
+    { id: invited, brief_id: reel.id, creator_id: creator.id, status: 'invited', agreed_price: 40000, match_score: 87, created_at: ago(30) },
+    { id: reviewing, brief_id: stills.id, creator_id: creator.id, status: 'delivered', agreed_price: 48000, match_score: 74, created_at: ago(240) },
+    ...(other ? [{ id: randomUUID(), brief_id: reel.id, creator_id: other.id, status: 'shortlisted', agreed_price: null, match_score: 92, created_at: ago(31) }] : []),
+  ]), 'insert engagements')
+
+  ok(await db.from('engagement_messages').insert([
+    say(invited, 'brand', 'invite', `Hi ${creator.name.split(' ')[0]},
+
+We are Diya & Wick Candles and we would like to invite you to our Diwali collection launch reel. Your Kling and Midjourney work has the warm, cinematic feel we are after. We need one 30-second 9:16 hero reel, two 15-second cutdowns and a 1:1 feed version, with a budget of up to ₹40,000.
+
+The full brief and usage rights are attached. Are you interested?
+
+Diya & Wick Candles`, 30),
+    say(reviewing, 'brand', 'invite', `Hi ${creator.name.split(' ')[0]}, we would love your help refreshing our product stills: 12 portrait images and 2 homepage banners, minimal and earthy. Budget ₹48,000.`, 240),
+    say(reviewing, 'creator', 'status', 'The creator accepted the invitation.', 232),
+    say(reviewing, 'creator', 'message', 'Happy to take this on. I will send the first banner for direction before doing the full set.', 231),
+    say(reviewing, 'creator', 'status', 'Work has started: the first version was uploaded.', 120),
+    say(reviewing, 'creator', 'status', 'The creator marked the work as delivered.', 119),
+    say(reviewing, 'brand', 'revision', 'Revision requested on v1: Lovely texture. Please make the light warmer and keep the label fully readable.', 96),
+    say(reviewing, 'brand', 'status', 'The brand asked for a revision (1 of 1 used).', 96),
+    say(reviewing, 'creator', 'message', 'Done: warmer light, and I moved the dried flowers so the label is clear.', 20),
+    say(reviewing, 'creator', 'status', 'The creator marked the work as delivered.', 20),
+  ]), 'insert engagement messages')
+
+  // Versions are numbered by the database, so they go in one at a time, oldest first.
+  const banner = stills.deliverables[1] ?? stills.deliverables[0]
+  const urls = [media?.[0]?.media_url, media?.[1]?.media_url ?? media?.[0]?.media_url].filter(Boolean) as string[]
+  if (urls.length === 2) {
+    ok(await db.from('submissions').insert({ engagement_id: reviewing, deliverable_id: banner, version: 1, media_url: urls[0], media_type: 'image', notes: 'First homepage banner, for direction.', status: 'revision_requested', review_comment: 'Lovely texture. Please make the light warmer and keep the label fully readable.', reviewed_at: ago(96), created_at: ago(120) }), 'insert submission v1')
+    ok(await db.from('submissions').insert({ engagement_id: reviewing, deliverable_id: banner, version: 1, media_url: urls[1], media_type: 'image', notes: 'Warmer light, label clear.', status: 'submitted', created_at: ago(20) }), 'insert submission v2')
+  }
+}
+

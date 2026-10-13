@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { Verification, VerificationType } from '../lib/types'
 import { summarizeVerifications, VERIFICATION_INFO } from '../lib/verification'
 
@@ -49,7 +50,8 @@ export default function VerificationBadges({ verifications, itemId, size = 'full
       {show.map(({ type, detail }) => {
         const info = VERIFICATION_INFO[type]
         const count = type === 'tool' && s.counts.tool > 1 ? ` ×${s.counts.tool}` : ''
-        const tip = `${info.explain}${detail ? ` ${detail}` : ''}`
+        const how = s.methods[type].length ? ` How: ${s.methods[type].join('; ')}.` : ''
+        const tip = `${info.explain}${detail ? ` ${detail}` : ''}${how}`
         return (
           <li key={type} className="group/badge">
             <span
@@ -63,14 +65,16 @@ export default function VerificationBadges({ verifications, itemId, size = 'full
               {count}
             </span>
             {tooltip === 'rich' && (
-              <span
-                role="tooltip"
-                // Anchored to the badge row (not the badge) so it never runs off the right edge on phones,
-                // and display:none while closed so it cannot widen the page.
-                className="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden w-60 max-w-[calc(100vw-4rem)] rounded-btn bg-ink p-3 text-xs font-medium normal-case leading-snug text-cream shadow-card ring-1 ring-cream/20 group-hover/badge:block group-focus-within/badge:block"
-              >
-                <span className="display block text-[10px] text-brand mb-1">{info.label}</span>
-                {tip}
+              // Anchored to the badge row (not the badge) so it never runs off the right edge on phones, and
+              // display:none while closed so it cannot widen the page. The padding bridges the gap to the badge,
+              // so the pointer can move onto the panel and reach the link.
+              <span role="tooltip" className="absolute left-0 top-full z-30 hidden w-64 max-w-[calc(100vw-4rem)] pt-2 group-hover/badge:block group-focus-within/badge:block">
+                <span className="block rounded-btn bg-ink p-3 text-xs font-medium normal-case leading-snug text-cream shadow-card ring-1 ring-cream/20">
+                  <span className="display block text-[10px] text-brand mb-1">{info.label}</span>
+                  {info.explain}{detail ? ` ${detail}` : ''}
+                  {s.methods[type].length > 0 && <span className="mt-1.5 block text-cream/70">How it was verified: {s.methods[type].join('; ')}.</span>}
+                  <Link to="/trust" className="mt-2 block font-bold underline underline-offset-2 hover:text-brand">What the badges mean</Link>
+                </span>
               </span>
             )}
           </li>

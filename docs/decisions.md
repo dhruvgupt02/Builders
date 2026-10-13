@@ -36,6 +36,31 @@
 - **Badge tooltips.** Rich tooltips are used on profile, viewer, dashboard and creator cards. Portfolio cards inside the
   masonry grid use the browser's native tooltip, because a floating panel there gets split across columns.
 
+## Phase 5 (matching, verification, projects)
+
+- **A chain of models, raced.** During the live-site check both `gemini-flash-latest` (503, then its daily free quota)
+  and `gemini-flash-lite-latest` (no response at all) were failing while other models answered. `generateText` now starts
+  the configured model, starts the next one alongside it if there is no answer after a short wait, takes the first
+  answer and rests any model that failed for three minutes. Heavy testing can exhaust a free-tier quota in a day.
+- **Scoring is SQL** (`006_matching.sql`) and documented in `docs/matching.md`. Parts the brief cannot judge score half,
+  not zero. The style scale (0.72 to 0.88) was calibrated on the sample data.
+- **Reasons are cached per brief and creator** in `match_cache` and dropped by triggers when the brief changes in a way
+  that affects matching. Only AI sentences are cached; rule-built ones are recomputed so AI can replace them later.
+- **Verification is honest about its limits.** A screenshot check shows access to a tool, not that a piece was made with
+  it, and a screenshot can be faked (the test's own "relevant" screenshot is a mock-up). `/trust` says so. Anything below
+  0.8 confidence stays pending for a person. Sample badges are marked "reviewed by BRIVIO", not AI or client.
+- **Client confirmation is a database function**, not an API route: `confirm_client_work` marks the token used and writes
+  the verification in one statement, so a link cannot be used twice. The table itself cannot be updated by anyone.
+- **Engagement rules live in the database.** Policies decide who can see a project; triggers decide which status moves
+  each side may make, number the versions, and stop the brand editing a submitted file. The UI only offers legal moves,
+  but does not rely on that.
+- **Shortlists are private.** A creator cannot see an engagement until they are invited. Invited creators can read the
+  brief even if it is still a draft.
+- **Revision limit.** The brand cannot request more revisions on a deliverable than the brief's `revision_rounds`; the
+  page warns on the last one and blocks beyond it (extra rounds are agreed by message).
+- **The seed no longer resets demo passwords** on every run, because that signs out anyone using the demo logins.
+  `npm run seed -- --reset-passwords` forces it.
+
 ## Phase 4 (briefs)
 
 - **Drafts are private.** Migration 005 replaces "any logged-in user can read briefs" with "open or closed briefs, or your

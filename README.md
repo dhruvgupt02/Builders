@@ -31,7 +31,11 @@ portfolio pieces with their workflow, and request verification badges.
 | `/portfolio/new`, `/portfolio/:id/edit` | Owner | Add or edit a portfolio piece (upload, workflow builder, AI description) |
 | `/briefs/new`, `/briefs/:id/edit` | Brands | Brief builder: start from a rough idea (AI) or a five-step form, with autosave, completeness meter and "Check my brief" |
 | `/briefs/:id` | Logged in | Brief view: deliverables table, commercial use in one sentence, "Find matching creators"; owner can change status, edit, duplicate |
-| `/dashboard/brand` | Brands | My briefs: status, completeness, create, edit, duplicate, delete |
+| `/dashboard/brand` | Brands | My briefs: status, completeness, create, edit, duplicate, delete; shortlists and projects |
+| `/briefs/:id/matches` | Brief owner | Creators ranked 0-100 for the brief with a breakdown, a reason, and Shortlist / Invite |
+| `/engagements/:id` | Brand + invited creator | Project page: status timeline, versions side by side, reviews, messages |
+| `/confirm/:token` | Public | A client confirms they commissioned a piece (one-time link) |
+| `/trust` | Public | What each badge means and how matching scores work |
 | `/briefs` | Logged in | Open briefs board for creators, filtered by content type and aspect ratio |
 
 ## Project layout
@@ -49,6 +53,9 @@ api/
   ai/embed-row.ts      POST /api/ai/embed-row     — embeds a profile or piece right after it is saved
   ai/brief-builder.ts  POST /api/ai/brief-builder — rough idea to structured brief (JSON mode, validated)
   ai/brief-check.ts    POST /api/ai/brief-check   — gaps, conflicts and suggestions for a brief
+  ai/match-reasons.ts  POST /api/ai/match-reasons — one-sentence reasons for the top 10 matches (cached)
+  ai/invite-message.ts POST /api/ai/invite-message — drafts the invitation a brand sends a creator
+  ai/verify-evidence.ts POST /api/ai/verify-evidence — AI check of a tool screenshot or a documented workflow
   search/semantic.ts   POST /api/search/semantic  — "describe what you need" search (public, rate limited)
   _lib/                Server-only helpers. Underscore = not deployed as a route.
 supabase/
@@ -62,6 +69,8 @@ scripts/
   list-models.ts   List embedding models your key can use (npm run models)
   test-search.ts   Search accuracy tests against the live database (npm run test:search)
   test-brief-builder.ts  AI brief builder and brief ownership tests (npm run test:briefs)
+  test-matching.ts Match scoring tests, one part of the score at a time (npm run test:matching)
+  test-flow.ts     Evidence check, confirmation links and engagement ownership tests (npm run test:flow)
   seed-briefs.ts   Sample brands and briefs; `npm run seed -- --briefs-only` refreshes just these
   migrate.ts       Apply pending SQL migrations (npm run migrate)
   verify-migrations.ts  Check migration policies and behaviour (npm run migrate:verify)
@@ -180,6 +189,23 @@ runs the builder on eight rough ideas (checking taxonomy values, required fields
 the server-side validation and the brief check, and verifies through the public API that a non-owner cannot read a draft
 or change someone else's brief.
 
+## Matching, verification and projects
+
+- **Matching.** `match_creators_for_brief(brief_id, lim)` scores every creator 0-100 for a brief: tools 25, format 20,
+  style 25, budget 15, commercial 10, verification 5. The weights and formulas are in [docs/matching.md](docs/matching.md).
+  Briefs are embedded when saved (`/api/ai/embed-row`) so style can be compared with portfolio pieces.
+- **Verification.** Three badges, each with its own proof, explained for users on `/trust`:
+  a tool screenshot checked by Gemini vision, a documented workflow (3+ steps, an image on each) checked for a plausible
+  progression, and past work confirmed by the client through a one-time link that expires in 14 days.
+- **Projects.** `engagements`, `engagement_messages` and `submissions` carry a creator from shortlist to approved delivery.
+  Only the brand that owns the brief and the invited creator can see or change a project; database triggers make sure
+  each side can only make its own moves and that versions are numbered v1, v2, … per deliverable.
+
+```bash
+npm run test:matching
+npm run test:flow
+```
+
 ## AI features
 
 - **Describe what you need** (search) embeds the text and ranks creators by similarity. It is public, limited to about 20
@@ -188,8 +214,9 @@ or change someone else's brief.
 
 - **Polish my bio** (onboarding) and **Describe this piece** (portfolio form) call `/api/ai/*`. Both need a logged-in user.
 - The routes never crash the UI: a missing key, a rate limit (429) or an outage comes back as a short message next to the button.
-- If `GEMINI_MODEL` is overloaded or does not answer within 8 seconds, the routes fall back to `gemini-flash-lite-latest`
-  (override with an optional `GEMINI_FALLBACK_MODEL` variable). `/api/ai/health` reports which model answered.
+- Generation never depends on one model. `GEMINI_MODEL` is tried first; if it is slow, over quota or overloaded, the next
+  model in a chain is started alongside it and the first answer wins (override the chain with an optional
+  comma-separated `GEMINI_FALLBACK_MODELS` variable). `/api/ai/health` reports which model answered.
 
 ## Deploy (Vercel)
 

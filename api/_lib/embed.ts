@@ -52,3 +52,31 @@ export const ITEM_EMBED_COLUMNS = 'title, description, style_tags, tools'
 export function itemEmbedText(p: { title?: string | null; description?: string | null; style_tags?: string[] | null; tools?: string[] | null }) {
   return [p.title, p.description, `Style: ${joined(p.style_tags)}`, `Tools: ${joined(p.tools)}`].filter(Boolean).join('\n')
 }
+
+export const BRIEF_EMBED_COLUMNS = 'title, goal, product, target_audience, key_message, style_tags, mood, required_tools, brief_deliverables(content_type, aspect_ratio, duration_sec, quantity, position)'
+interface BriefEmbedRow {
+  title?: string | null
+  goal?: string | null
+  product?: string | null
+  target_audience?: string | null
+  key_message?: string | null
+  style_tags?: string[] | null
+  mood?: string | null
+  required_tools?: string[] | null
+  brief_deliverables?: { content_type: string | null; aspect_ratio: string | null; duration_sec: number | null; quantity: number | null; position: number | null }[] | null
+}
+export function briefEmbedText(b: BriefEmbedRow) {
+  const deliverables = [...(b.brief_deliverables ?? [])]
+    .sort((x, y) => (x.position ?? 0) - (y.position ?? 0))
+    .map((d) => [`${d.quantity ?? 1} x`, d.duration_sec ? `${d.duration_sec}s` : null, d.aspect_ratio, d.content_type].filter(Boolean).join(' '))
+  return [
+    b.title, b.goal,
+    b.product && `Product: ${b.product}`,
+    b.target_audience && `Audience: ${b.target_audience}`,
+    b.key_message && `Key message: ${b.key_message}`,
+    `Style: ${joined(b.style_tags)}`,
+    b.mood && `Mood: ${b.mood}`,
+    deliverables.length ? `Deliverables: ${deliverables.join('; ')}` : null,
+    `Tools: ${joined(b.required_tools)}`,
+  ].filter(Boolean).join('\n')
+}

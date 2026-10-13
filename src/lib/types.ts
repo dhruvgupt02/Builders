@@ -8,6 +8,9 @@ export interface Verification {
   label: string | null
   status: 'pending' | 'verified' | 'rejected'
   portfolio_item_id?: string | null
+  /** who or what verified it: an AI check of the evidence, a BRIVIO reviewer, or the client */
+  verified_by?: 'ai' | 'manual' | 'client' | null
+  confidence?: number | null
   evidence_url?: string | null
   reason?: string | null
   created_at?: string
@@ -61,4 +64,4 @@ export interface PortfolioItem {
 }
 
 /** The verification fields every public page selects. */
-export const VERIFICATION_COLUMNS = 'id,type,label,status,portfolio_item_id'
+export const VERIFICATION_COLUMNS = 'id,type,label,status,portfolio_item_id,verified_by'

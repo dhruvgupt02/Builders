@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
+import { embedRow } from '../lib/ai'
 import { loadBrief, myBrandName, saveBrief } from '../lib/briefs-db'
 import {
   completeness, deliverableProblem, emptyBrief, needsDuration, newDeliverable, publishProblems, rightsSentence, ruleChecks, STEPS, today, validateStep,
@@ -141,6 +142,10 @@ export default function BriefEditor() {
         window.history.replaceState(window.history.state, '', `/briefs/${savedId}/edit`)
       }
       setSave({ state: 'saved', at: new Date() })
+      // Keep the brief's embedding (used for matching) in step with its text. Saves come in bursts while typing,
+      // so this waits for a quiet moment instead of embedding on every one.
+      clearTimeout(embedTimer.current)
+      embedTimer.current = setTimeout(() => void embedRow('briefs', savedId), 4000)
       return savedId
     } catch (err) {
       setSave({ state: 'error', message: (err as Error).message })
@@ -154,6 +159,7 @@ export default function BriefEditor() {
     }
   }, [userId])
 
+  const embedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const firstRender = useRef(true)
   useEffect(() => {
     if (phase !== 'form') return
@@ -284,7 +290,11 @@ export default function BriefEditor() {
     setBrief(latest.current.brief)
     const savedId = await persist()
     setPublishing(false)
-    if (savedId && latest.current.saving === false) navigate(status === 'open' ? `/briefs/${savedId}` : '/dashboard/brand')
+    if (savedId && latest.current.saving === false) {
+      clearTimeout(embedTimer.current)
+      void embedRow('briefs', savedId) // publishing or leaving: embed now
+      navigate(status === 'open' ? `/briefs/${savedId}` : '/dashboard/brand')
+    }
   }
 
   async function continueAsDemoBrand() {

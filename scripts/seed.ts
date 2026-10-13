@@ -239,7 +239,11 @@ async function ensureUser(email: string, role: 'brand' | 'creator', name: string
   let id: string
   if (existing) {
     id = existing.id
+    // Leave an existing account's password alone: resetting it signs out everyone using the demo login.
+    // Pass --reset-passwords to force it (for example after the password in this file changes).
+    if (process.argv.includes('--reset-passwords')) {
     check(await db.auth.admin.updateUserById(id, { password: DEMO_PASSWORD, email_confirm: true, user_metadata: { role, name } }), `update ${email}`)
+    }
   } else {
     const created = await db.auth.admin.createUser({ email, password: DEMO_PASSWORD, email_confirm: true, user_metadata: { role, name } })
     check(created, `create ${email}`)
@@ -261,7 +265,7 @@ async function main() {
   const creatorUserId = await ensureUser(DEMO_CREATOR_EMAIL, 'creator', CREATORS[0].name)
 
   if (process.argv.includes('--briefs-only')) {
-    const n = await seedBriefs(db, brandUserId, DRY_RUN)
+    const n = await seedBriefs(db, brandUserId, DRY_RUN, creatorUserId)
     console.log(`Refreshed ${SAMPLE_BRANDS.length} sample brands and ${n} briefs. Creators were left untouched.`)
     return
   }
@@ -330,7 +334,8 @@ async function main() {
     const tier = idx % 5 < 2 ? 'full' : idx % 5 < 4 ? 'partial' : 'none'
     if (tier === 'none') return
     const clientItem = items.find((i) => i.client) ?? items[0]
-    const by = pick(['ai', 'manual'] as const)
+    pick(['ai', 'manual'] as const) // keeps the random sequence, and so the sample data, unchanged
+    const by = 'manual' as const // sample badges were not through a real AI or client check
     const v = (type: 'tool' | 'workflow' | 'past_work', label: string, itemId: string | null, status: 'verified' | 'pending' | 'rejected') => ({
       id: randomUUID(), creator_id: creatorId, portfolio_item_id: itemId, type, label,
       evidence_url: `https://picsum.photos/seed/evidence-${nameSlug}-${type}/800/600`,
@@ -372,7 +377,7 @@ async function main() {
   await insertChunked('verifications', verificationRows)
 
   console.log('Inserting brands and briefs…')
-  const briefCount = await seedBriefs(db, brandUserId, DRY_RUN)
+  const briefCount = await seedBriefs(db, brandUserId, DRY_RUN, creatorUserId)
 
   console.log(`\nSeeded ${creatorRows.length} creators, ${itemRows.length} portfolio items, ${stepRows.length} workflow steps,`)
   console.log(`${verificationRows.length} verifications, ${SAMPLE_BRANDS.length} brands, ${briefCount} briefs.`)

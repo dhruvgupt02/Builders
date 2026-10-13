@@ -15,7 +15,9 @@
     "migrate": "tsx scripts/migrate.ts",
     "migrate:verify": "tsx scripts/verify-migrations.ts",
     "test:search": "tsx scripts/test-search.ts",
-    "test:briefs": "tsx scripts/test-brief-builder.ts"
+    "test:briefs": "tsx scripts/test-brief-builder.ts",
+    "test:matching": "tsx scripts/test-matching.ts",
+    "test:flow": "tsx scripts/test-flow.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -26,6 +28,7 @@
     "@vercel/node": "^23.0.1",
     "@vitejs/plugin-react": "^6.1.2",
     "dotenv": "^18.0.7",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
