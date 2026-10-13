@@ -4,8 +4,8 @@
 //    test item, cannot delete another creator's item, and a non-owner can read brief rights.
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
-import pg from 'pg'
 import { adminClient, requireEnv } from './env.js'
+import { connectDb } from './db.js'
 
 const EXPECTED: [table: string, policy: string, command: string][] = [
   ['brief_rights', 'brief_rights_select_authenticated', 'SELECT'],
@@ -23,8 +23,7 @@ const report = (ok: boolean, text: string) => {
 // ── 1. policies ──
 console.log('Policies')
 if (process.env.SUPABASE_DB_URL) {
-  const client = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 15000 })
-  await client.connect()
+  const client = await connectDb()
   const { rows } = await client.query<{ tablename: string; policyname: string; cmd: string }>(
     `select tablename, policyname, cmd from pg_policies where schemaname = 'public' and tablename = any($1) order by tablename, policyname`,
     [EXPECTED.map(([t]) => t)],

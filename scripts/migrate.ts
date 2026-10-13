@@ -3,38 +3,14 @@
 //
 // Connects straight to Postgres with SUPABASE_DB_URL (see README for where to find it). Applied files are
 // recorded in public.schema_migrations, and each file runs in its own transaction: it either applies fully or not at all.
-import 'dotenv/config'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import pg from 'pg'
+import { connectDb } from './db.js'
 
 const DIR = join(process.cwd(), 'supabase', 'migrations')
 const statusOnly = process.argv.includes('--status')
 
-const url = process.env.SUPABASE_DB_URL
-if (!url) {
-  console.error('SUPABASE_DB_URL is not set in .env.\nSupabase dashboard → Connect (top bar) → Connection string → Session pooler. See README.')
-  process.exit(1)
-}
-if (url.includes('[YOUR-PASSWORD]')) {
-  console.error('SUPABASE_DB_URL still contains [YOUR-PASSWORD]. Replace it with your database password.')
-  process.exit(1)
-}
-
-// Supabase requires TLS; its pooler certificate is not in Node's default trust store.
-const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 15000 })
-
-try {
-  await client.connect()
-} catch (err) {
-  const message = (err as Error).message
-  console.error(`Could not connect to the database: ${message}`)
-  if (/ENOTFOUND|ENETUNREACH|EHOSTUNREACH|timeout/i.test(message))
-    console.error('The "Direct connection" string needs IPv6. Use the "Session pooler" string instead.')
-  if (/password|authentication|SASL/i.test(message))
-    console.error('Check the database password. If it contains characters like @ : / # ? it must be URL-encoded.')
-  process.exit(1)
-}
+const client = await connectDb()
 
 try {
   // RLS on with no policies: the table is invisible to the public API and only reachable over this connection.
