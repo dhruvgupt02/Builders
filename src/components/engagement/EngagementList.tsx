@@ -15,7 +15,7 @@ export function EngagementStatusBadge({ status }: { status: EngagementStatus }) 
 /** What the viewer is expected to do next, if anything. */
 export function nextStep(status: EngagementStatus, role: 'brand' | 'creator'): string | null {
   if (role === 'creator')
-    return status === 'invited' ? 'Reply to the invitation' : status === 'accepted' || status === 'in_progress' ? 'Upload your work' : status === 'revision_requested' ? 'Upload a revised version' : null
+    return status === 'invited' ? 'Reply to the invitation' : status === 'accepted' || status === 'in_progress' ? 'Upload your work' : status === 'revision_requested' ? 'Upload the requested work' : null
   return status === 'shortlisted' ? 'Send an invitation' : status === 'delivered' ? 'Review the delivery' : null
 }
 

@@ -51,13 +51,19 @@ export default function EngagementPage() {
   const b = brief?.draft
   const deliverables: (DeliverableDraft | null)[] = b?.deliverables.length ? b.deliverables : [null]
   const limit = e.briefs?.revision_rounds ?? b?.revision_rounds ?? 0
-  const canUpload = role === 'creator' && ['accepted', 'in_progress', 'revision_requested'].includes(e.status)
+  // The creator can add versions from acceptance until the brand approves the whole delivery, including after
+  // marking it delivered (to add a missed deliverable or a better take).
+  const canUpload = role === 'creator' && ['accepted', 'in_progress', 'revision_requested', 'delivered'].includes(e.status)
+  const canDeliver = role === 'creator' && ['accepted', 'in_progress', 'revision_requested'].includes(e.status)
   const canReview = role === 'brand' && e.status === 'delivered'
   const ended = e.status === 'declined' || e.status === 'cancelled'
   const todo = nextStep(e.status, role)
   const versionsOf = (deliverableId: string | null) => submissions.filter((s) => s.deliverable_id === deliverableId).sort((x, y) => x.version - y.version)
   const latestEach = deliverables.map((d) => versionsOf(d?.key ?? null).at(-1))
   const allApproved = latestEach.length > 0 && latestEach.every((s) => s?.status === 'approved')
+  // deliverables nobody has uploaded anything for yet (1-based positions)
+  const missing = latestEach.map((s, i) => (s ? 0 : i + 1)).filter(Boolean)
+  const missingText = `${missing.length === 1 ? 'deliverable' : 'deliverables'} ${missing.length > 1 ? `${missing.slice(0, -1).join(', ')} and ${missing.at(-1)}` : missing.join('')}`
 
   const act = async (key: string, fn: () => Promise<unknown>) => {
     setBusy(key)
@@ -132,7 +138,7 @@ export default function EngagementPage() {
       {error && <div className="mt-4"><Notice tone="error">{error}</Notice></div>}
 
       {/* What to do now */}
-      {(todo || (role === 'brand' && allApproved && e.status === 'delivered')) && (
+      {(todo || (role === 'brand' && allApproved && e.status === 'delivered') || (role === 'creator' && e.status === 'delivered')) && (
         <Card className="mt-5 !p-5">
           <p className="text-xs font-bold uppercase tracking-wider text-brand">Your move</p>
           {role === 'creator' && e.status === 'invited' && (
@@ -144,14 +150,21 @@ export default function EngagementPage() {
               </div>
             </>
           )}
-          {role === 'creator' && canUpload && (
+          {canDeliver && (
             <>
               <p className="mt-1 font-semibold">{e.status === 'revision_requested' ? 'Upload a revised version for each deliverable the brand commented on, then mark it delivered.' : 'Upload a version for each deliverable below, then mark the project delivered.'}</p>
-              <div className="mt-4">
-                <Button onClick={() => act('deliver', () => moveTo(e.id, 'delivered', 'creator', 'The creator marked the work as delivered.'))} disabled={busy !== null || submissions.length === 0}>{busy === 'deliver' ? 'Sending…' : 'Mark as delivered'}</Button>
-                {submissions.length === 0 && <span className="ml-3 text-xs text-ink-soft">Upload at least one version first.</span>}
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Button onClick={() => act('deliver', () => moveTo(e.id, 'delivered', 'creator', 'The creator marked the work as delivered.'))} disabled={busy !== null || missing.length > 0}>{busy === 'deliver' ? 'Sending…' : 'Mark as delivered'}</Button>
+                {missing.length > 0 && <span className="text-xs font-semibold text-ink-soft">Still to upload: {missingText}. Every deliverable needs at least one version before you can deliver.</span>}
               </div>
             </>
+          )}
+          {role === 'creator' && e.status === 'delivered' && (
+            <p className="mt-1 font-semibold">
+              {missing.length > 0
+                ? `You marked this delivered, but ${missingText} ${missing.length === 1 ? 'has' : 'have'} nothing uploaded yet. Add ${missing.length === 1 ? 'it' : 'them'} below so the brand can approve the delivery.`
+                : 'Delivered. The brand is reviewing. You can still add a newer version to any deliverable below until they approve the delivery.'}
+            </p>
           )}
           {role === 'brand' && e.status === 'shortlisted' && (
             <>
@@ -161,7 +174,19 @@ export default function EngagementPage() {
           )}
           {role === 'brand' && e.status === 'delivered' && (
             <>
-              <p className="mt-1 font-semibold">{allApproved ? 'Every deliverable is approved. Approve the delivery to finish the project.' : 'Review the latest version of each deliverable below: approve it, or ask for a revision.'}</p>
+              <p className="mt-1 font-semibold">
+                {allApproved ? 'Every deliverable is approved. Approve the delivery to finish the project.'
+                  : missing.length > 0 ? `The creator marked this delivered, but ${missingText} ${missing.length === 1 ? 'has' : 'have'} nothing uploaded yet. You can approve the delivery once every deliverable has an approved version.`
+                  : 'Review the latest version of each deliverable below: approve it, or ask for a revision.'}
+              </p>
+              {missing.length > 0 && (
+                <div className="mt-4">
+                  <Button variant="dark" onClick={() => act('send-back', () => moveTo(e.id, 'revision_requested', 'brand', `The brand sent the project back: ${missingText} still ${missing.length === 1 ? 'needs' : 'need'} to be uploaded.`))} disabled={busy !== null}>
+                    {busy === 'send-back' ? 'Sending…' : 'Send back for the missing work'}
+                  </Button>
+                  <span className="ml-3 text-xs text-ink-soft">This does not use up a revision round.</span>
+                </div>
+              )}
               {allApproved && <div className="mt-4"><Button onClick={() => act('approve-all', () => moveTo(e.id, 'approved', 'brand', 'The brand approved the delivery. The project is complete.'))} disabled={busy !== null}>{busy === 'approve-all' ? 'Approving…' : 'Approve delivery'}</Button></div>}
             </>
           )}
