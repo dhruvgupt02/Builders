@@ -23,3 +23,22 @@ export async function callAi(route: 'polish-bio' | 'describe-item', body: unknow
     return { ok: false, error: FALLBACK }
   }
 }
+
+/**
+ * Asks the server to (re)compute the search embedding of a row the user just saved, so it is searchable
+ * straight away. Fire and forget: if it fails the save still stands and `npm run embed` fills it in later.
+ */
+export async function embedRow(table: 'creators' | 'portfolio_items', id: string): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getSession()
+    const res = await fetch('/api/ai/embed-row', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
+      body: JSON.stringify({ table, id }),
+      keepalive: true,
+    })
+    if (!res.ok) console.warn(`[embed] ${table} ${id} was not embedded (${res.status}); it stays searchable by keyword.`)
+  } catch (err) {
+    console.warn(`[embed] ${table} ${id} was not embedded:`, (err as Error).message)
+  }
+}

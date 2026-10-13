@@ -15,5 +15,5 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["vite.config.ts", "scripts", "api", "src/lib/taxonomy.ts"]
+  "include": ["vite.config.ts", "scripts", "api", "src/lib/taxonomy.ts", "src/lib/search.ts"]
 }

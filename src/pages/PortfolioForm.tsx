@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { callAi } from '../lib/ai'
+import { callAi, embedRow } from '../lib/ai'
 import { MAX_MEDIA_MB, nearestAspect, readImage, readVideo, uploadFile, validateFile } from '../lib/storage'
 import { useCreatorGate } from '../lib/useCreatorGate'
 import {
@@ -261,6 +261,7 @@ export default function PortfolioForm() {
         }
       }
 
+      void embedRow('portfolio_items', itemId!) // searchable right away; never blocks the save
       navigate(`/portfolio/${itemId}`)
     } catch (err) {
       setSaving(null)

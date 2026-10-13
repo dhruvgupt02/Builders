@@ -68,7 +68,8 @@ Import from `../components/ui`.
 | Page | Status | Reference |
 | --- | --- | --- |
 | Home | Built | `01-landing-hero.webp` (hero, pillars row, black chip card, ticket card) |
-| Creators list, Login, Brief view, Brief list | Built | No dedicated reference; built from the tokens and components above |
+| Login, Brief view, Brief list | Built | No dedicated reference; built from the tokens and components above |
+| Search (`/creators`) | Built (Phase 3) | Cream search card with `Tabs` for the mode, sticky filter `Card` (drawer on mobile), option chips with counts, ink chips for active filters, ink empty-results card with one-click fixes |
 | Creator profile (`/creators/:id`) | Built (Phase 2) | Ink header card, stats row on hairlines, masonry portfolio with `Tabs` filter |
 | Portfolio viewer (`/portfolio/:id`) | Built (Phase 2) | Framed media, sticky cream side panel, numbered workflow timeline, zoom lightbox |
 | Creator onboarding (`/onboarding/creator`) | Built (Phase 2) | Two steps with `Tabs`, toggle chips from the taxonomy, ink AI-suggestion card |
@@ -76,7 +77,8 @@ Import from `../components/ui`.
 | Creator dashboard (`/dashboard/creator`) | Built (Phase 2) | Ink summary card, portfolio grid with edit/delete, ticket card for verification requests |
 
 Phase 2 added these shared pieces: `VerificationBadges` (the three trust badges with tooltips), `ToolChips` (tool chips with a
-blue tick when verified), `Lightbox`, and in `components/ui`: `Field`, `Textarea`, `ChipPicker`, `TagInput`, `FileDrop`, `Notice`.
+blue tick when verified), `Lightbox`, and in `components/ui`: `Field`, `Textarea`, `ChipPicker`, `TagInput`, `FileDrop`, `Notice`. Phase 3 added `Switch` and, in `components/search`,
+`FilterPanel`, `SearchResultCard` (thumbnail strip at true aspect ratios) and `EmptyResults`.
 
 ### Pages not built yet
 
@@ -85,5 +87,4 @@ from `01-landing-hero.webp`.
 
 | Page | Follow this |
 | --- | --- |
-| Search filters (`/creators`) | Filter bar under the `PageHeader`: `Input` for search, `Select` for city and price, `ChipPicker` for tools, specializations and skills. On mobile, collapse into a `dark` "Filters" button that opens an ink panel like the mobile menu. Show the result count as an ink `Badge`. |
 | Brief form (`/briefs/new`) | Same building blocks as the portfolio form. Two columns on desktop: form sections in cream `Card`s on the left, and a sticky ink `Card` on the right summarising the brief and commercial-use rights (same style as the rights card on the brief view). Usage platforms and aspect ratios with `ChipPicker`. |

@@ -1,5 +1,7 @@
 // npm run migrate            — applies every file in supabase/migrations/ that has not been applied yet
 // npm run migrate -- --status — only lists what is applied and what is pending
+// npm run migrate -- --redo 004_search.sql — runs one file again (only safe for files written to be re-runnable,
+//                                            such as ones that only replace views and functions)
 //
 // Connects straight to Postgres with SUPABASE_DB_URL (see README for where to find it). Applied files are
 // recorded in public.schema_migrations, and each file runs in its own transaction: it either applies fully or not at all.
@@ -9,6 +11,8 @@ import { connectDb } from './db.js'
 
 const DIR = join(process.cwd(), 'supabase', 'migrations')
 const statusOnly = process.argv.includes('--status')
+const redoIndex = process.argv.indexOf('--redo')
+const redo = redoIndex > -1 ? process.argv[redoIndex + 1] : null
 
 const client = await connectDb()
 
@@ -24,7 +28,8 @@ try {
 
   const applied = new Set((await client.query<{ name: string }>('select name from public.schema_migrations')).rows.map((r) => r.name))
   const files = readdirSync(DIR).filter((f) => f.endsWith('.sql')).sort()
-  const pending = files.filter((f) => !applied.has(f))
+  if (redo && !files.includes(redo)) throw new Error(`--redo: ${redo} is not in supabase/migrations`)
+  const pending = redo ? [redo] : files.filter((f) => !applied.has(f))
 
   for (const f of files) console.log(`${applied.has(f) ? 'applied' : 'pending'}  ${f}`)
   if (statusOnly || pending.length === 0) {
@@ -35,7 +40,7 @@ try {
       try {
         await client.query('begin')
         await client.query(readFileSync(join(DIR, f), 'utf8'))
-        await client.query('insert into public.schema_migrations (name) values ($1)', [f])
+        await client.query('insert into public.schema_migrations (name) values ($1) on conflict (name) do update set applied_at = now()', [f])
         await client.query('commit')
         console.log(`✓ applied ${f}`)
       } catch (err) {

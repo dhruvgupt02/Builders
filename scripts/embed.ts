@@ -1,19 +1,13 @@
 // npm run embed — fills missing embeddings for creators and portfolio items.
 import { adminClient, requireEnv } from './env.js'
-import { embedText, toPgVector } from '../api/_lib/embed.js'
+import { CREATOR_EMBED_COLUMNS, ITEM_EMBED_COLUMNS, creatorEmbedText, embedText, itemEmbedText, toPgVector } from '../api/_lib/embed.js'
 
 requireEnv('GEMINI_API_KEY')
 const db = adminClient()
 const DELAY_MS = 700 // keeps us under free-tier requests-per-minute limits
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-const join = (a: string[] | null | undefined) => (a ?? []).join(', ')
-
-async function embedTable(
-  table: 'creators' | 'portfolio_items',
-  columns: string,
-  toText: (row: Record<string, any>) => string,
-) {
+async function embedTable(table: 'creators' | 'portfolio_items', columns: string, toText: (row: Record<string, any>) => string) {
   const { data, error } = await db.from(table).select(`id, ${columns}`).is('embedding', null)
   if (error) throw error
   const rows = (data ?? []) as unknown as Record<string, any>[]
@@ -34,14 +28,7 @@ async function embedTable(
   console.log(`${table}: embedded ${done}/${rows.length}`)
 }
 
-await embedTable('creators', 'name, headline, bio, specializations, tools, skills', (c) =>
-  [c.headline, c.bio, `Specializations: ${join(c.specializations)}`, `Tools: ${join(c.tools)}`, `Skills: ${join(c.skills)}`]
-    .filter(Boolean)
-    .join('\n'),
-)
-
-await embedTable('portfolio_items', 'title, description, style_tags, tools', (p) =>
-  [p.title, p.description, `Style: ${join(p.style_tags)}`, `Tools: ${join(p.tools)}`].filter(Boolean).join('\n'),
-)
+await embedTable('creators', CREATOR_EMBED_COLUMNS, creatorEmbedText)
+await embedTable('portfolio_items', ITEM_EMBED_COLUMNS, itemEmbedText)
 
 console.log('Done.')

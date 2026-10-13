@@ -21,7 +21,7 @@ portfolio pieces with their workflow, and request verification badges.
 | Route | Who | What |
 | --- | --- | --- |
 | `/` | Public | Landing page and featured creators |
-| `/creators` | Public | All creators |
+| `/creators` | Public | Search: keyword or "describe what you need", filters with live counts, sort, shareable URLs |
 | `/creators/:id` | Public | Creator profile: verification summary, stats, chips, filterable portfolio |
 | `/portfolio/:id` | Public | Portfolio viewer: media, details, "Made with", workflow timeline, more from the creator |
 | `/login` | Public | Log in, create an account, or try a demo account |
@@ -42,6 +42,8 @@ api/
   ai/health.ts         GET  /api/ai/health        — checks the Gemini key + model
   ai/polish-bio.ts     POST /api/ai/polish-bio    — improves a creator bio
   ai/describe-item.ts  POST /api/ai/describe-item — writes a portfolio description
+  ai/embed-row.ts      POST /api/ai/embed-row     — embeds a profile or piece right after it is saved
+  search/semantic.ts   POST /api/search/semantic  — "describe what you need" search (public, rate limited)
   _lib/                Server-only helpers. Underscore = not deployed as a route.
 supabase/
   schema.sql      Tables, indexes, RLS policies, new-user trigger
@@ -52,6 +54,7 @@ scripts/
   mirror-media.ts  Copy placeholder images into Supabase Storage (npm run mirror-media)
   embed.ts         Fill embeddings (npm run embed)
   list-models.ts   List embedding models your key can use (npm run models)
+  test-search.ts   Search accuracy tests against the live database (npm run test:search)
   migrate.ts       Apply pending SQL migrations (npm run migrate)
   verify-migrations.ts  Check migration policies and behaviour (npm run migrate:verify)
 docs/
@@ -100,8 +103,8 @@ docs/
    npm run models
    npm run embed
    ```
-   `models` confirms the embedding model is available to your key; `embed` fills any missing vectors. It is safe to
-   re-run, and worth re-running after creators edit profiles or portfolio pieces (edits clear the old vector).
+   `models` confirms the embedding model is available to your key; `embed` fills any missing vectors and is safe to
+   re-run. Edits made in the app are embedded automatically on save; `embed` catches anything that was missed.
 6. **Run locally**
    ```bash
    npm run dev
@@ -124,7 +127,32 @@ All creators, clients and brands are fictional. Images are placeholders (origina
 stored in the project's own `portfolio-media` bucket, so the app does not depend on those sites at runtime.
 `npm run mirror-media` re-copies anything that still points outside Storage and reports what is left.
 
+## Search
+
+Search runs in Postgres (`supabase/migrations/004_search.sql`) and works without logging in.
+
+- **Rules.** Filter groups are combined with AND. Inside a group any selected value matches (OR), except tools with
+  "Match all tools" on, where the creator must have every selected tool. Budget keeps creators whose starting price
+  (`price_min`) is within the budget. Text search needs every word to appear in the creator's name, headline, bio, city,
+  specializations, skills, tools, or in their portfolio titles, descriptions and style tags.
+- **`creator_search` view** — one row per creator with portfolio and verification aggregates.
+- **`search_creators(...)`** — returns `{ total, rows }`; each row has up to three thumbnails and the selected values it matches.
+- **`search_facets(filters, options)`** — the number beside each filter option: how many creators you would see with that
+  option switched on and everything else unchanged. Clicking an option always gives exactly that many results.
+- **`search_closest(filters, lim)`** — for empty results: creators meeting the most filters, with what each one misses.
+- **`match_creators(embedding, lim)` / `search_semantic(...)`** — cosine similarity over creator and portfolio embeddings.
+
+```bash
+npm run test:search
+```
+runs 31 checks through the public API and compares every answer with an independent calculation from the base tables
+(result sets, counts, match-all, budget, text, sorting, paging, every facet count, closest matches, semantic ranking).
+
 ## AI features
+
+- **Describe what you need** (search) embeds the text and ranks creators by similarity. It is public, limited to about 20
+  searches a minute per visitor, and falls back to keyword results with a notice if Gemini is slow, down or not configured.
+- Saving a profile or portfolio piece calls `/api/ai/embed-row`, so new content is searchable by description straight away.
 
 - **Polish my bio** (onboarding) and **Describe this piece** (portfolio form) call `/api/ai/*`. Both need a logged-in user.
 - The routes never crash the UI: a missing key, a rate limit (429) or an outage comes back as a short message next to the button.

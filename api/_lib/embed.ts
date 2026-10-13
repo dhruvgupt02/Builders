@@ -37,3 +37,18 @@ export async function embedText(text: string, taskType: EmbedTask = 'RETRIEVAL_D
 export function toPgVector(v: number[]) {
   return `[${v.join(',')}]`
 }
+
+// ───────────── what gets embedded ─────────────
+// Shared by scripts/embed.ts (bulk) and /api/ai/embed-row (on save), so both produce identical vectors.
+
+const joined = (a: string[] | null | undefined) => (a ?? []).join(', ')
+
+export const CREATOR_EMBED_COLUMNS = 'headline, bio, specializations, tools, skills'
+export function creatorEmbedText(c: { headline?: string | null; bio?: string | null; specializations?: string[] | null; tools?: string[] | null; skills?: string[] | null }) {
+  return [c.headline, c.bio, `Specializations: ${joined(c.specializations)}`, `Tools: ${joined(c.tools)}`, `Skills: ${joined(c.skills)}`].filter(Boolean).join('\n')
+}
+
+export const ITEM_EMBED_COLUMNS = 'title, description, style_tags, tools'
+export function itemEmbedText(p: { title?: string | null; description?: string | null; style_tags?: string[] | null; tools?: string[] | null }) {
+  return [p.title, p.description, `Style: ${joined(p.style_tags)}`, `Tools: ${joined(p.tools)}`].filter(Boolean).join('\n')
+}

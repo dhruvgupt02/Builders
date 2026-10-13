@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { callAi } from '../lib/ai'
+import { callAi, embedRow } from '../lib/ai'
 import { readImage, uploadFile, validateFile } from '../lib/storage'
 import { useCreatorGate } from '../lib/useCreatorGate'
 import { SKILLS, SPECIALIZATIONS, TOOLS, type Skill, type Specialization, type Tool } from '../lib/taxonomy'
@@ -154,13 +154,14 @@ export default function CreatorOnboarding() {
       embedding: null, // text changed: `npm run embed` re-embeds rows without an embedding
     }
     const result = creatorId
-      ? await supabase.from('creators').update(row).eq('id', creatorId)
-      : await supabase.from('creators').insert({ ...row, profile_id: userId, is_sample: false })
+      ? await supabase.from('creators').update(row).eq('id', creatorId).select('id').maybeSingle()
+      : await supabase.from('creators').insert({ ...row, profile_id: userId, is_sample: false }).select('id').maybeSingle()
     if (result.error) {
       setSaving(false)
       return setSaveError(`Your profile could not be saved: ${result.error.message}`)
     }
     await supabase.from('profiles').update({ name: row.name, city: row.city, avatar_url: row.avatar_url }).eq('id', userId!)
+    if (result.data?.id) void embedRow('creators', result.data.id) // searchable right away; never blocks the save
     await refresh()
     navigate('/dashboard/creator')
   }

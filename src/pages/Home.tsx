@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { Creator } from '../lib/types'
+import { searchLink } from '../lib/search'
 import CreatorCard from '../components/CreatorCard'
 import { ArrowIcon, Button, Card, Chip, Media, Spinner } from '../components/ui'
 
@@ -9,6 +10,16 @@ const PILLARS = [
   ['01', 'See the workflow', 'Every portfolio piece shows the tools and steps behind it.'],
   ['02', 'Trust the work', 'Tool, workflow and past-work verification badges.'],
   ['03', 'Rights made clear', 'Platforms, territory, exclusivity and AI likeness terms.'],
+]
+
+// Each link opens the search page with these filters already applied (they are plain URL parameters).
+const POPULAR_SEARCHES = [
+  { label: 'AI ads in 9:16', to: searchLink({ specializations: ['AI ads'], aspect_ratios: ['9:16'] }) },
+  { label: 'Product visuals with Kling', to: searchLink({ specializations: ['Product visuals'], tools: ['Kling'] }) },
+  { label: 'Music videos', to: searchLink({ specializations: ['Music videos'] }) },
+  { label: 'Verified explainer videos', to: searchLink({ specializations: ['Explainer videos'], verified_only: true }) },
+  { label: 'Commercial-ready social reels', to: searchLink({ specializations: ['Social reels'], commercial_ready: true }) },
+  { label: 'Under ₹10,000', to: searchLink({ budget_max: 10000 }) },
 ]
 
 const SAMPLE_WORKFLOW = [
@@ -47,6 +58,13 @@ function Stamp() {
 
 export default function Home() {
   const [featured, setFeatured] = useState<Creator[] | null>(null)
+  const [query, setQuery] = useState('')
+  const navigate = useNavigate()
+
+  function onSearch(ev: FormEvent) {
+    ev.preventDefault()
+    navigate(searchLink({ q: query }))
+  }
 
   useEffect(() => {
     supabase
@@ -71,11 +89,35 @@ export default function Home() {
             </span>
             <br />Brands
           </h1>
-          <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row sm:items-center gap-6 sm:gap-10">
-            <Button to="/creators" size="lg" icon={<GridIcon />}>Discover creators</Button>
-            <p className="text-lg leading-snug max-w-[17rem]">
-              Hire AI filmmakers, animators and generative artists — with the workflow shown.
-            </p>
+          <p className="mt-6 text-lg leading-snug max-w-md">
+            Hire AI filmmakers, animators and generative artists — with the workflow shown.
+          </p>
+
+          {/* Main call to action: search */}
+          <form onSubmit={onSearch} role="search" className="mt-6 flex flex-col sm:flex-row gap-2 max-w-xl">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search AI creators"
+              placeholder="Search by tool, skill, city or style"
+              className="h-14 flex-1 min-w-0 rounded-btn bg-cream px-4 text-base ring-[1.5px] ring-inset ring-ink/25 placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+            <Button type="submit" size="lg" icon={<GridIcon />}>Find creators</Button>
+          </form>
+
+          <div className="mt-5">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-ink-soft">Popular searches</h2>
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {POPULAR_SEARCHES.map((p) => (
+                <Link key={p.label} to={p.to} className="rounded-lg bg-ink text-cream px-3 py-1.5 text-xs font-semibold hover:bg-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue">
+                  {p.label}
+                </Link>
+              ))}
+              <Link to="/creators?mode=semantic" className="rounded-lg bg-cream px-3 py-1.5 text-xs font-semibold ring-1 ring-inset ring-line hover:ring-ink">
+                ✦ Describe what you need
+              </Link>
+            </div>
           </div>
         </div>
 

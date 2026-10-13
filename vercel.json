@@ -1,4 +1,7 @@
 {
-  "functions": { "api/ai/*.ts": { "maxDuration": 30 } },
+  "functions": {
+    "api/ai/*.ts": { "maxDuration": 30 },
+    "api/search/*.ts": { "maxDuration": 30 }
+  },
   "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
 }
