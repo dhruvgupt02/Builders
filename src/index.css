@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-brand: #5B2EFF;
+  --color-brand-dark: #4520d6;
+  --color-brand-light: #efeaff;
+}
+
+html, body { background: #fff; color: #111827; }
