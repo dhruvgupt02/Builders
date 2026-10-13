@@ -8,6 +8,7 @@ portfolio pieces with their workflow, and request verification badges.
 
 ## Stack
 
+
 | Layer | Tech |
 | --- | --- |
 | Frontend | Vite + React + TypeScript + Tailwind CSS v4, React Router |
