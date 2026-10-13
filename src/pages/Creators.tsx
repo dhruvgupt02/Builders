@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Creator } from '../lib/types'
 import CreatorCard from '../components/CreatorCard'
-import { EmptyState, PageContainer, Spinner } from '../components/ui'
+import { Badge, EmptyState, PageContainer, PageHeader, Spinner } from '../components/ui'
 
 export default function Creators() {
   const [creators, setCreators] = useState<Creator[] | null>(null)
@@ -21,8 +21,12 @@ export default function Creators() {
 
   return (
     <PageContainer>
-      <h1 className="text-3xl font-bold text-gray-900">Discover AI creators</h1>
-      <p className="mt-2 text-gray-600">AI filmmakers, animators and generative artists ready for brand work.</p>
+      <PageHeader
+        eyebrow="Discover"
+        title="AI creators"
+        subtitle="AI filmmakers, animators and generative artists ready for brand work."
+        actions={creators && !error && creators.length > 0 ? <Badge tone="ink">{creators.length} creators</Badge> : undefined}
+      />
       <div className="mt-8">
         {creators === null ? (
           <Spinner label="Loading creators…" />
@@ -31,12 +35,9 @@ export default function Creators() {
         ) : creators.length === 0 ? (
           <EmptyState title="No creators yet" body="Check back soon — new AI creators are joining." />
         ) : (
-          <>
-            <p className="text-sm text-gray-500 mb-4">{creators.length} creators</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {creators.map((c) => <CreatorCard key={c.id} creator={c} />)}
-            </div>
-          </>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {creators.map((c) => <CreatorCard key={c.id} creator={c} />)}
+          </div>
         )}
       </div>
     </PageContainer>

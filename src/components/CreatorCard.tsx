@@ -1,7 +1,6 @@
-import { Link } from 'react-router-dom'
 import type { Creator } from '../lib/types'
 import { formatPriceRange } from '../lib/format'
-import { Avatar, Chip, VerifiedBadge } from './ui'
+import { ArrowIcon, Avatar, Card, Chip, VerifiedBadge } from './ui'
 
 export function isVerified(c: Creator) {
   return (c.verifications ?? []).some((v) => v.status === 'verified')
@@ -9,25 +8,27 @@ export function isVerified(c: Creator) {
 
 export default function CreatorCard({ creator }: { creator: Creator }) {
   return (
-    <Link
-      to={`/creators/${creator.id}`}
-      className="block border border-gray-200 rounded-2xl p-5 hover:border-brand hover:shadow-md transition"
-    >
-      <div className="flex items-center gap-3">
-        <Avatar src={creator.avatar_url} name={creator.name} />
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-gray-900 truncate">{creator.name}</h3>
-            {isVerified(creator) && <VerifiedBadge />}
+    <Card to={`/creators/${creator.id}`} padded={false} className="group flex flex-col h-full overflow-hidden">
+      <div className="p-5 flex-1">
+        <div className="flex items-start gap-3">
+          <Avatar src={creator.avatar_url} name={creator.name} />
+          <div className="min-w-0 flex-1">
+            <h3 className="display text-base leading-tight break-words">{creator.name}</h3>
+            <p className="mt-1 text-sm text-ink-soft">{creator.city}</p>
           </div>
-          <p className="text-sm text-gray-500">{creator.city}</p>
+          {isVerified(creator) && <VerifiedBadge />}
+        </div>
+        <p className="mt-4 text-sm text-ink line-clamp-2 min-h-10">{creator.headline}</p>
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {creator.tools.slice(0, 3).map((t) => <Chip key={t}>{t}</Chip>)}
         </div>
       </div>
-      <p className="mt-3 text-sm text-gray-700 line-clamp-2 min-h-10">{creator.headline}</p>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {creator.tools.slice(0, 3).map((t) => <Chip key={t} tone="brand">{t}</Chip>)}
+      <div className="flex items-center justify-between gap-3 bg-ink text-cream pl-5 pr-2 py-2">
+        <p className="text-sm font-semibold">{formatPriceRange(creator.price_min, creator.price_max)}</p>
+        <span className="h-9 w-9 rounded-lg bg-brand text-white flex items-center justify-center transition-transform group-hover:rotate-45">
+          <ArrowIcon />
+        </span>
       </div>
-      <p className="mt-4 text-sm font-semibold text-gray-900">{formatPriceRange(creator.price_min, creator.price_max)}</p>
-    </Link>
+    </Card>
   )
 }

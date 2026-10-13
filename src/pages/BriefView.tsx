@@ -71,30 +71,30 @@ export default function BriefView() {
 
   return (
     <PageContainer>
-      <Link to="/briefs/new" className="text-sm text-gray-500 hover:text-brand">← Briefs</Link>
-      <p className="mt-6 text-sm font-semibold text-brand">{brief.brands?.company_name}</p>
-      <h1 className="text-3xl font-bold text-gray-900">{brief.title}</h1>
-      <p className="mt-3 text-gray-700 max-w-3xl">{brief.goal}</p>
-      {brief.raw_idea && <p className="mt-3 text-gray-600 max-w-3xl italic">“{brief.raw_idea}”</p>}
+      <Link to="/briefs/new" className="text-sm text-ink-soft hover:text-brand font-semibold">← Briefs</Link>
+      <p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-brand">{brief.brands?.company_name}</p>
+      <h1 className="display mt-2 text-3xl sm:text-5xl">{brief.title}</h1>
+      <p className="mt-3 text-ink max-w-3xl">{brief.goal}</p>
+      {brief.raw_idea && <p className="mt-3 text-ink-soft max-w-3xl italic">“{brief.raw_idea}”</p>}
 
-      <div className="mt-8 grid md:grid-cols-2 gap-10">
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-10">
         <div>
           <dl className="grid grid-cols-2 gap-4">
             {facts.filter(([, v]) => v).map(([k, v]) => (
               <div key={k}>
-                <dt className="text-xs uppercase tracking-wide text-gray-500">{k}</dt>
-                <dd className="text-sm font-medium text-gray-900">{v}</dd>
+                <dt className="text-xs uppercase tracking-wide text-ink-soft">{k}</dt>
+                <dd className="text-sm font-medium ">{v}</dd>
               </div>
             ))}
           </dl>
-          <h3 className="mt-6 text-sm font-semibold mb-2">Aspect ratios</h3><ChipList items={brief.aspect_ratios} />
-          <h3 className="mt-4 text-sm font-semibold mb-2">Style</h3><ChipList items={brief.style_tags} />
-          <h3 className="mt-4 text-sm font-semibold mb-2">Required tools</h3><ChipList items={brief.required_tools} tone="brand" />
+          <h3 className="mt-6 text-xs font-bold uppercase tracking-wider mb-2">Aspect ratios</h3><ChipList items={brief.aspect_ratios} />
+          <h3 className="mt-4 text-xs font-bold uppercase tracking-wider mb-2">Style</h3><ChipList items={brief.style_tags} />
+          <h3 className="mt-4 text-xs font-bold uppercase tracking-wider mb-2">Required tools</h3><ChipList items={brief.required_tools} tone="orange" />
         </div>
         {r && (
-          <div className="rounded-2xl border border-gray-200 p-6">
-            <h2 className="font-semibold text-gray-900">Commercial-use rights</h2>
-            <h3 className="mt-4 text-sm font-semibold mb-2">Usage platforms</h3><ChipList items={r.usage_platforms} />
+          <div className="rounded-card bg-ink text-cream p-6 [&_dt]:text-cream/60">
+            <h2 className="display text-xl">Commercial-use rights</h2>
+            <h3 className="mt-4 text-xs font-bold uppercase tracking-wider mb-2">Usage platforms</h3><ChipList items={r.usage_platforms} tone="white" />
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
               {([
                 ['Territory', r.territory],
@@ -105,7 +105,7 @@ export default function BriefView() {
                 ['Tool commercial licence', yesNo(r.requires_tool_commercial_licence)],
                 ['Credit required', yesNo(r.credit_required)],
               ] as [string, string | null][]).map(([k, v]) => (
-                <div key={k}><dt className="text-gray-500">{k}</dt><dd className="font-medium">{v}</dd></div>
+                <div key={k}><dt className="text-ink-soft">{k}</dt><dd className="font-medium">{v}</dd></div>
               ))}
             </dl>
           </div>

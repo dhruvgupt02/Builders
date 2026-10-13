@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/useSession'
 import { formatINR } from '../lib/format'
-import { PageContainer, Spinner } from '../components/ui'
+import { ArrowIcon, Badge, Button, Card, PageContainer, PageHeader, Spinner } from '../components/ui'
 
 interface BriefRow {
   id: string
@@ -31,43 +30,39 @@ export default function BriefNew() {
 
   return (
     <PageContainer>
-      <h1 className="text-3xl font-bold text-gray-900">Create a creative brief</h1>
-      <p className="mt-2 text-gray-600 max-w-2xl">
-        Describe your idea, format, style and commercial-use rights, and BRIVIO matches you with the right AI creators.
-        The brief builder is launching shortly.
-      </p>
+      <PageHeader
+        eyebrow="For brands"
+        title="Create a brief"
+        subtitle="Describe your idea, format, style and commercial-use rights, and BRIVIO matches you with the right AI creators. The brief builder is launching shortly."
+      />
 
       {loading ? (
         <Spinner />
       ) : !session ? (
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link to="/login" className="px-5 py-2.5 rounded-lg bg-brand text-white font-medium hover:bg-brand-dark">
-            Log in as a brand
-          </Link>
-          <Link to="/creators" className="px-5 py-2.5 rounded-lg border border-gray-300 font-medium hover:border-brand hover:text-brand">
-            Browse creators meanwhile
-          </Link>
+          <Button to="/login" icon={<ArrowIcon />}>Log in as a brand</Button>
+          <Button to="/creators" variant="outline">Browse creators meanwhile</Button>
         </div>
       ) : (
         <div className="mt-10">
-          <h2 className="text-lg font-semibold text-gray-900">Your briefs</h2>
+          <h2 className="display text-xl">Your briefs</h2>
           {briefs === null ? (
             <Spinner />
           ) : briefs.length === 0 ? (
-            <p className="mt-3 text-sm text-gray-500">You have no briefs yet.</p>
+            <p className="mt-3 text-sm text-ink-soft">You have no briefs yet.</p>
           ) : (
-            <ul className="mt-4 divide-y divide-gray-100 border border-gray-200 rounded-xl">
+            <ul className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
               {briefs.map((b) => (
                 <li key={b.id}>
-                  <Link to={`/briefs/${b.id}`} className="flex items-center justify-between p-4 hover:bg-gray-50">
-                    <div>
-                      <p className="font-medium text-gray-900">{b.title}</p>
-                      <p className="text-sm text-gray-500">
-                        {b.content_type} · {formatINR(b.budget_min)} – {formatINR(b.budget_max)}
-                      </p>
+                  <Card to={`/briefs/${b.id}`} className="h-full">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-bold text-lg leading-snug">{b.title}</p>
+                      <Badge tone="orange">{b.status}</Badge>
                     </div>
-                    <span className="text-xs font-semibold uppercase text-brand">{b.status}</span>
-                  </Link>
+                    <p className="mt-2 text-sm text-ink-soft">
+                      {b.content_type} · {formatINR(b.budget_min)} – {formatINR(b.budget_max)}
+                    </p>
+                  </Card>
                 </li>
               ))}
             </ul>

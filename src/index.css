@@ -1,10 +1,82 @@
 @import "tailwindcss";
 
+/*
+ * BRIVIO design tokens (Tailwind v4: the theme lives here instead of tailwind.config).
+ * Extracted from docs/design/01-landing-hero.webp — kraft paper, heavy ink type, orange + blue accents.
+ * Every token is a CSS variable (var(--color-paper) etc.) and a Tailwind utility (bg-paper, text-ink, ...).
+ */
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-brand: #5B2EFF;
-  --color-brand-dark: #4520d6;
-  --color-brand-light: #efeaff;
+  /* Colour */
+  --color-paper: #ead2b8;        /* page background (kraft paper) */
+  --color-paper-deep: #dfc2a2;   /* pressed / hover on paper */
+  --color-bark: #33190c;         /* dark brown frame, footer */
+  --color-ink: #121110;          /* text, dark cards, dark buttons */
+  --color-ink-soft: #5a4636;     /* secondary text on paper */
+  --color-cream: #fffaf4;        /* light cards, inputs */
+  --color-brand: #ff5b0a;        /* primary orange */
+  --color-brand-dark: #e04a00;
+  --color-blue: #2f5bff;         /* secondary accent */
+  --color-lime: #dfe8a6;         /* progress fills, positive hints */
+  --color-line: rgb(18 17 16 / 0.16); /* hairline dividers */
+
+  /* Type */
+  --font-sans: "Onest", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Archivo", "Arial Black", ui-sans-serif, sans-serif;
+
+  /* Shape */
+  --radius-btn: 0.75rem;   /* buttons, inputs, chips */
+  --radius-card: 1.25rem;  /* cards */
+  --shadow-card: 0 1px 0 rgb(18 17 16 / 0.04), 0 12px 28px -18px rgb(51 25 12 / 0.45);
 }
 
-html, body { background: #fff; color: #111827; }
+/* Heavy, wide, uppercase headline face used for all headings and button labels. */
+@utility display {
+  font-family: var(--font-display);
+  font-stretch: 125%;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  line-height: 0.98;
+}
+
+/* Ticket-stub notches on the left and right edge of a card. */
+@utility ticket {
+  -webkit-mask-image: radial-gradient(circle 10px at 0 var(--notch-y, 50%), transparent 97%, #000),
+    radial-gradient(circle 10px at 100% var(--notch-y, 50%), transparent 97%, #000);
+  -webkit-mask-composite: source-in;
+  mask-image: radial-gradient(circle 10px at 0 var(--notch-y, 50%), transparent 97%, #000),
+    radial-gradient(circle 10px at 100% var(--notch-y, 50%), transparent 97%, #000);
+  mask-composite: intersect;
+}
+
+/* Orange dotted square, the small decorative mark from the reference. */
+@utility dots {
+  background-image: radial-gradient(var(--color-brand) 1.6px, transparent 1.8px);
+  background-size: 9px 9px;
+}
+
+html {
+  background: var(--color-bark);
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background-color: var(--color-paper);
+  /* Paper: fine grain + a few soft creases. Pure CSS, no image files. */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .2 0 0 0 0 .1 0 0 0 0 .05 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(172deg, transparent 0 18%, rgb(255 255 255 / 0.22) 18.2%, transparent 19.5%),
+    linear-gradient(8deg, transparent 0 61%, rgb(51 25 12 / 0.07) 61.2%, transparent 62.5%),
+    linear-gradient(96deg, transparent 0 73%, rgb(255 255 255 / 0.16) 73.2%, transparent 74%),
+    radial-gradient(120% 80% at 50% 0%, rgb(255 244 230 / 0.55), transparent 60%);
+}
+
+::selection {
+  background: var(--color-brand);
+  color: #fff;
+}
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}

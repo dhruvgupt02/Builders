@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/useSession'
+import { ArrowIcon, Button, Card, Input } from '../components/ui'
 
 // Public demo accounts created by scripts/seed.ts. Safe to ship: they only hold sample data.
 const DEMO_PASSWORD = 'BrivioDemo123!'
@@ -32,67 +33,62 @@ export default function Login() {
     signIn(email, password, 'form', '/creators')
   }
 
-  async function goToDemoCreator() {
+  async function signInDemoCreator() {
+    setBusy('creator')
+    setError(null)
+    const { error } = await supabase.auth.signInWithPassword({ email: DEMO_USERS.creator, password: DEMO_PASSWORD })
+    if (error) {
+      setBusy(null)
+      setError(error.message)
+      return
+    }
     const { data } = await supabase.auth.getUser()
     const { data: c } = await supabase.from('creators').select('id').eq('profile_id', data.user?.id ?? '').maybeSingle()
+    setBusy(null)
     navigate(c ? `/creators/${c.id}` : '/creators')
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 py-16">
-      <h1 className="text-2xl font-bold text-gray-900">Log in to BRIVIO</h1>
-      {session && (
-        <p className="mt-3 text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
-          You are logged in as <span className="font-medium">{session.user.email}</span>.
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-14 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center">
+      <div>
+        <div className="dots h-10 w-10 mb-5" aria-hidden />
+        <h1 className="display text-4xl sm:text-6xl">Log in<br />to Brivio</h1>
+        <p className="mt-5 text-lg text-ink-soft max-w-sm">
+          Try the marketplace in one click with a demo account, or use your own.
         </p>
-      )}
-
-      <div className="mt-6 grid grid-cols-2 gap-3">
-        <button
-          onClick={() => signIn(DEMO_USERS.brand, DEMO_PASSWORD, 'brand', '/briefs/new')}
-          disabled={busy !== null}
-          className="py-3 rounded-xl bg-brand text-white font-semibold hover:bg-brand-dark disabled:opacity-60"
-        >
-          {busy === 'brand' ? 'Signing in…' : 'Try as brand'}
-        </button>
-        <button
-          onClick={async () => {
-            setBusy('creator')
-            setError(null)
-            const { error } = await supabase.auth.signInWithPassword({ email: DEMO_USERS.creator, password: DEMO_PASSWORD })
-            if (error) { setBusy(null); setError(error.message); return }
-            await goToDemoCreator()
-            setBusy(null)
-          }}
-          disabled={busy !== null}
-          className="py-3 rounded-xl border border-brand text-brand font-semibold hover:bg-brand-light disabled:opacity-60"
-        >
-          {busy === 'creator' ? 'Signing in…' : 'Try as creator'}
-        </button>
+        <div className="mt-7 flex flex-wrap gap-3">
+          <Button
+            size="lg"
+            icon={<ArrowIcon />}
+            disabled={busy !== null}
+            onClick={() => signIn(DEMO_USERS.brand, DEMO_PASSWORD, 'brand', '/briefs/new')}
+          >
+            {busy === 'brand' ? 'Signing in…' : 'Try as brand'}
+          </Button>
+          <Button size="lg" variant="dark" icon={<ArrowIcon />} disabled={busy !== null} onClick={signInDemoCreator}>
+            {busy === 'creator' ? 'Signing in…' : 'Try as creator'}
+          </Button>
+        </div>
       </div>
 
-      <div className="my-8 flex items-center gap-3 text-xs text-gray-400">
-        <div className="h-px bg-gray-200 flex-1" /> or use your account <div className="h-px bg-gray-200 flex-1" />
-      </div>
-
-      <form onSubmit={onSubmit} className="space-y-4">
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">Email</span>
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand" />
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">Password</span>
-          <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand" />
-        </label>
-        <button type="submit" disabled={busy !== null}
-          className="w-full py-2.5 rounded-lg bg-gray-900 text-white font-medium hover:bg-black disabled:opacity-60">
-          {busy === 'form' ? 'Signing in…' : 'Log in'}
-        </button>
-      </form>
-
-      {error && <p className="mt-4 text-sm text-red-600" role="alert">{error}</p>}
+      <Card ticket notchY="5.25rem" className="!p-6 sm:!p-8">
+        <h2 className="display text-xl">Your account</h2>
+        {session ? (
+          <p className="mt-2 text-sm text-ink-soft">
+            Logged in as <span className="font-semibold text-ink break-all">{session.user.email}</span>
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-ink-soft">Email and password</p>
+        )}
+        <form onSubmit={onSubmit} className="mt-8 pt-6 border-t border-dashed border-ink/25 space-y-4">
+          <Input label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@brand.com" />
+          <Input label="Password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          <Button type="submit" variant="dark" full disabled={busy !== null}>
+            {busy === 'form' ? 'Signing in…' : 'Log in'}
+          </Button>
+        </form>
+        {error && <p className="mt-4 rounded-btn bg-brand/10 px-3 py-2 text-sm font-medium text-brand-dark" role="alert">{error}</p>}
+      </Card>
     </div>
   )
 }
