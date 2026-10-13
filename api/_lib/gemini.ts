@@ -45,74 +45,106 @@ export async function withRetry<T>(fn: () => Promise<T>, label = 'gemini', baseM
   }
 }
 
-// ───────────── text generation with a time limit and a fallback model ─────────────
+// ───────────── text generation: a chain of models, raced when one is slow ─────────────
+//
+// "Latest" model aliases are sometimes overloaded: they answer 503, hit a quota, or accept the request and never
+// reply. So generation never depends on one model. GEMINI_MODEL is tried first; if it has not answered after a
+// short wait, the next model in the chain is started alongside it, and so on. The first good answer wins and the
+// rest are cancelled. A model that fails is skipped for a few minutes.
 
-/** Used when GEMINI_MODEL is overloaded or does not answer in time. Override with GEMINI_FALLBACK_MODEL. */
-export function fallbackModel() {
-  return process.env.GEMINI_FALLBACK_MODEL || 'gemini-flash-lite-latest'
+const DEFAULT_FALLBACKS = ['gemini-flash-lite-latest', 'gemini-3.5-flash', 'gemini-3.1-flash-lite']
+
+/** GEMINI_MODEL first, then GEMINI_FALLBACK_MODELS (comma-separated) or the defaults. */
+export function modelChain(): string[] {
+  const extra = (process.env.GEMINI_FALLBACK_MODELS ?? process.env.GEMINI_FALLBACK_MODEL ?? '').split(',').map((m) => m.trim()).filter(Boolean)
+  return [...new Set([chatModel(), ...(extra.length ? extra : DEFAULT_FALLBACKS)])]
 }
 
-const ATTEMPT_MS = 8000
-// After the main model fails, skip it for a while so later requests answer quickly from the fallback.
-const SKIP_PRIMARY_MS = 3 * 60 * 1000
-let skipPrimaryUntil = 0
-
-function isUnavailable(err: unknown) {
-  return isRetryable(err) || /abort|timed? ?out/i.test((err as Error)?.message ?? '')
-}
+const COOLDOWN_MS = 3 * 60 * 1000
+const coolingUntil = new Map<string, number>()
 
 export interface GenerateOptions {
   prompt: string
   system?: string
   label?: string
-  /** Cap for each attempt, in ms (default 8s). JSON-mode calls with a large schema need longer. */
-  attemptMs?: number
-  /** Cap for attempts on the fallback model, if it should differ (it is the last resort, so it can be given longer). */
-  fallbackAttemptMs?: number
+  /** How long to wait for a model before starting the next one alongside it (default 2.5s). */
+  hedgeMs?: number
+  /** Give up entirely after this long (default 20s). Keep it under the serverless function limit. */
+  deadlineMs?: number
   /** Extra generation config, e.g. { responseMimeType: 'application/json', responseSchema } for JSON mode. */
   config?: Record<string, unknown>
+  /** Extra content parts sent with the prompt, e.g. images for vision checks. */
+  parts?: { inlineData: { mimeType: string; data: string } }[]
 }
 
-function callModel(model: string, opts: GenerateOptions, ms: number) {
-  // An overloaded model can leave the request hanging with no response at all, so every attempt is capped.
-  const signal = AbortSignal.timeout(ms)
-  const call = getGemini().models.generateContent({ model, contents: opts.prompt, config: { systemInstruction: opts.system, temperature: 0.7, ...opts.config, abortSignal: signal } })
-  call.catch(() => {})
-  const limit = new Promise<never>((_, reject) =>
-    signal.addEventListener('abort', () => reject(new Error(`UNAVAILABLE: ${model} did not answer within ${ms / 1000}s`))),
-  )
-  return Promise.race([call, limit])
-}
-
-/**
- * Generates text with GEMINI_MODEL, falling back to the lite model if the first one is overloaded,
- * rate limited or silent. Returns the text and the model that actually answered.
- */
-export async function generateText(opts: GenerateOptions): Promise<{ text: string; model: string }> {
+/** Returns the text and the model that actually answered. Throws if every model fails or the deadline passes. */
+export function generateText(opts: GenerateOptions): Promise<{ text: string; model: string }> {
   const label = opts.label ?? 'gemini'
-  let lastError: unknown
-  const models = [...new Set([chatModel(), fallbackModel()])]
-  if (models.length > 1 && Date.now() < skipPrimaryUntil) models.shift()
-  for (const model of models) {
-    try {
-      for (let attempt = 0; ; attempt++) {
-        try {
-          const ms = (model === chatModel() ? opts.attemptMs : (opts.fallbackAttemptMs ?? opts.attemptMs)) ?? ATTEMPT_MS
-          const text = (await callModel(model, opts, ms)).text?.trim()
-          if (!text) throw new Error(`UNAVAILABLE: ${model} returned an empty response`)
-          return { text, model }
-        } catch (err) {
-          // One quick retry for a rate limit; anything else moves on to the fallback model.
-          if (attempt === 0 && isRateLimited(err)) await sleep(1500)
-          else throw err
-        }
-      }
-    } catch (err) {
-      lastError = err
-      console.warn(`[${label}] ${model} failed: ${String((err as Error)?.message).slice(0, 160)}`)
-      if (!isUnavailable(err)) throw err // bad key, bad request: a second model will not help
-      if (model === chatModel()) skipPrimaryUntil = Date.now() + SKIP_PRIMARY_MS
+  const ai = getGemini() // throws straight away if the key is missing
+  const now = Date.now()
+  const chain = modelChain()
+  const ready = chain.filter((m) => (coolingUntil.get(m) ?? 0) <= now)
+  const models = ready.length ? ready : chain // if everything is cooling down, try them all again
+  const contents = opts.parts?.length ? [{ role: 'user', parts: [...opts.parts, { text: opts.prompt }] }] : opts.prompt
+
+  return new Promise((resolve, reject) => {
+    const controllers: AbortController[] = []
+    const errors: unknown[] = []
+    const inFlight = new Set<string>()
+    let started = 0
+    let running = 0
+    let settled = false
+
+    const finish = (fn: () => void) => {
+      if (settled) return
+      settled = true
+      clearInterval(hedge)
+      clearTimeout(deadline)
+      for (const c of controllers) c.abort()
+      fn()
     }
-  }
-  throw lastError
+    const fail = () => {
+      // A rate-limit error is the most useful one to report: callers show "busy, try again in a minute".
+      const err = errors.find(isRateLimited) ?? errors[errors.length - 1] ?? new Error('UNAVAILABLE: no model answered in time')
+      finish(() => reject(err))
+    }
+    const startNext = () => {
+      if (settled || started >= models.length) return
+      const model = models[started++]
+      const controller = new AbortController()
+      controllers.push(controller)
+      running++
+      inFlight.add(model)
+      ai.models
+        .generateContent({ model, contents, config: { systemInstruction: opts.system, temperature: 0.7, ...opts.config, abortSignal: controller.signal } })
+        .then((res) => {
+          const text = res.text?.trim()
+          if (!text) throw new Error(`UNAVAILABLE: ${model} returned an empty response`)
+          coolingUntil.delete(model)
+          inFlight.delete(model)
+          // Models that were started earlier and still had not answered are resting too: next time go straight to a quick one.
+          for (const slow of inFlight) coolingUntil.set(slow, Date.now() + COOLDOWN_MS)
+          finish(() => resolve({ text, model }))
+        })
+        .catch((err) => {
+          if (settled) return // cancelled because another model won
+          running--
+          inFlight.delete(model)
+          errors.push(err)
+          coolingUntil.set(model, Date.now() + COOLDOWN_MS)
+          console.warn(`[${label}] ${model} failed: ${String((err as Error)?.message).slice(0, 140)}`)
+          if (started < models.length) startNext()
+          else if (running === 0) fail()
+        })
+    }
+
+    const hedge = setInterval(startNext, opts.hedgeMs ?? 2500)
+    const deadline = setTimeout(() => {
+      // Whatever is still running has been silent for too long: rest those models for a while.
+      for (const m of models.slice(0, started)) if (!coolingUntil.has(m)) coolingUntil.set(m, Date.now() + COOLDOWN_MS)
+      errors.push(new Error(`UNAVAILABLE: no model answered within ${(opts.deadlineMs ?? 20000) / 1000}s`))
+      fail()
+    }, opts.deadlineMs ?? 20000)
+    startNext()
+  })
 }

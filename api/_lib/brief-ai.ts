@@ -112,8 +112,8 @@ export async function runBriefBuilder(input: BuilderInput): Promise<BuilderResul
     label: 'brief-builder',
     system: BUILDER_SYSTEM,
     prompt,
-    attemptMs: 9000,
-    fallbackAttemptMs: 16000,
+    hedgeMs: 5000, // a full brief takes a few seconds even on a healthy model
+    deadlineMs: 26000,
     config: { responseMimeType: 'application/json', responseSchema: BRIEF_SCHEMA, temperature: 0.4 },
   })
   let raw: unknown
@@ -168,7 +168,8 @@ export async function runBriefCheck(brief: BriefDraft): Promise<{ items: CheckIt
         'formats that do not fit the usage platforms, rights that do not fit the budget, vague or contradictory creative direction, unrealistic timelines. ' +
         'Be specific to this brief. Do not repeat the issues already found. Do not invent problems; return an empty list if the brief is solid. Plain language, no emojis.',
       prompt: `Today is ${new Date().toISOString().slice(0, 10)}.\n\nBrief:\n${briefAsText(brief)}\n\nAlready found:\n${rules.map((r) => `- ${r.title}`).join('\n') || '- nothing'}`,
-      attemptMs: 12000,
+      hedgeMs: 4000,
+      deadlineMs: 18000,
       config: { responseMimeType: 'application/json', responseSchema: CHECK_SCHEMA, temperature: 0.3 },
     })
     const parsed = JSON.parse(text) as { items?: { kind?: string; title?: string; detail?: string }[] }
