@@ -28,7 +28,10 @@ portfolio pieces with their workflow, and request verification badges.
 | `/onboarding/creator` | Creators | Create or edit the creator profile (with AI bio polish) |
 | `/dashboard/creator` | Creators | Profile summary, portfolio management, verification requests |
 | `/portfolio/new`, `/portfolio/:id/edit` | Owner | Add or edit a portfolio piece (upload, workflow builder, AI description) |
-| `/briefs/new`, `/briefs/:id` | Logged in | Brief list and brief view (brief builder comes in a later phase) |
+| `/briefs/new`, `/briefs/:id/edit` | Brands | Brief builder: start from a rough idea (AI) or a five-step form, with autosave, completeness meter and "Check my brief" |
+| `/briefs/:id` | Logged in | Brief view: deliverables table, commercial use in one sentence, "Find matching creators"; owner can change status, edit, duplicate |
+| `/dashboard/brand` | Brands | My briefs: status, completeness, create, edit, duplicate, delete |
+| `/briefs` | Logged in | Open briefs board for creators, filtered by content type and aspect ratio |
 
 ## Project layout
 
@@ -43,6 +46,8 @@ api/
   ai/polish-bio.ts     POST /api/ai/polish-bio    — improves a creator bio
   ai/describe-item.ts  POST /api/ai/describe-item — writes a portfolio description
   ai/embed-row.ts      POST /api/ai/embed-row     — embeds a profile or piece right after it is saved
+  ai/brief-builder.ts  POST /api/ai/brief-builder — rough idea to structured brief (JSON mode, validated)
+  ai/brief-check.ts    POST /api/ai/brief-check   — gaps, conflicts and suggestions for a brief
   search/semantic.ts   POST /api/search/semantic  — "describe what you need" search (public, rate limited)
   _lib/                Server-only helpers. Underscore = not deployed as a route.
 supabase/
@@ -55,6 +60,8 @@ scripts/
   embed.ts         Fill embeddings (npm run embed)
   list-models.ts   List embedding models your key can use (npm run models)
   test-search.ts   Search accuracy tests against the live database (npm run test:search)
+  test-brief-builder.ts  AI brief builder and brief ownership tests (npm run test:briefs)
+  seed-briefs.ts   Sample brands and briefs; `npm run seed -- --briefs-only` refreshes just these
   migrate.ts       Apply pending SQL migrations (npm run migrate)
   verify-migrations.ts  Check migration policies and behaviour (npm run migrate:verify)
 docs/
@@ -147,6 +154,30 @@ npm run test:search
 ```
 runs 31 checks through the public API and compares every answer with an independent calculation from the base tables
 (result sets, counts, match-all, budget, text, sorting, paging, every facet count, closest matches, semantic ranking).
+
+## Briefs
+
+A brief captures content type, style, format and commercial use completely enough for a creator to price it.
+
+- **Model.** `briefs` (basics, creative direction, budget, status `draft`/`open`/`closed`, completeness), `brief_deliverables`
+  (one row per format: content type, aspect ratio, duration, quantity) and `brief_rights` (platforms, territory, duration,
+  exclusivity, ownership, real people, AI voice, music, disclosure, credit, tool licences). Fixed lists live in
+  `src/lib/taxonomy.ts`; the shared rules (validation, completeness, the plain-English rights sentence) in `src/lib/brief.ts`.
+- **AI Brief Builder.** `/api/ai/brief-builder` sends the rough idea to Gemini in JSON mode with a strict schema whose
+  fixed-list fields are enums of the taxonomy. The answer is then validated again on the server: anything not in the
+  taxonomy is dropped and reported, numbers are range-checked, and every required field the idea left open gets a default
+  that is listed as an assumption. It also returns up to three clarifying questions with quick answers.
+- **Check my brief.** Built-in rules (formats against platforms, budget against deliverables, deadline, rights) always
+  run; Gemini adds more observations when it is available.
+- **Visibility.** Drafts are private to their brand. Open and closed briefs are readable by logged-in users. Only the
+  owning brand can change a brief, its rights or its deliverables.
+
+```bash
+npm run test:briefs
+```
+runs the builder on eight rough ideas (checking taxonomy values, required fields, assumptions and deliverables), checks
+the server-side validation and the brief check, and verifies through the public API that a non-owner cannot read a draft
+or change someone else's brief.
 
 ## AI features
 

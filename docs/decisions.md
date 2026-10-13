@@ -36,6 +36,28 @@
 - **Badge tooltips.** Rich tooltips are used on profile, viewer, dashboard and creator cards. Portfolio cards inside the
   masonry grid use the browser's native tooltip, because a floating panel there gets split across columns.
 
+## Phase 4 (briefs)
+
+- **Drafts are private.** Migration 005 replaces "any logged-in user can read briefs" with "open or closed briefs, or your
+  own". Rights and deliverables follow automatically because their read rules look the brief up.
+- **Brand name lives on the brief** (`briefs.brand_name`), because the `brands` table is readable only by its owner and
+  creators need to see who is asking.
+- **One flat draft object** (`BriefDraft` in `src/lib/brief.ts`) is shared by the form, the AI routes, the seed and the
+  tests, with `toRows` / `fromRows` mapping it to the three tables. `briefs.aspect_ratios`, `deliverables_count` and
+  `completeness` are derived from it on every save.
+- **Two likeness fields.** The new `real_people_likeness` (none / licensed talent / creator) is what the form edits; the
+  older boolean `ai_likeness_allowed` is kept in step with it.
+- **The AI never has the last word.** Gemini's JSON is constrained by a schema and then re-validated in
+  `normalizeAiBrief`. A brand name is the one required field that may come back empty, and it is always flagged.
+- **Edits are protected.** The form tracks which fields the user changed after an AI fill. Regenerating or answering
+  questions with edits present asks "keep my edits, update the rest / replace everything / cancel" before anything changes.
+- **Autosave** writes a draft about two seconds after the last change once the brief has a title, and on every step
+  change. Deliverables are replaced wholesale on each save.
+- **Builder timeouts.** The configured model gets 9 seconds, the fallback 16, to stay inside a 30 second function limit.
+- **"Find matching creators"** links to search with the brief's content types, aspect ratios, required tools, budget and
+  commercial-ready switched on. Per-creator match scores are a later phase.
+- **Sample briefs** are refreshed with `npm run seed -- --briefs-only`, which leaves creators (ids, media, embeddings) alone.
+
 ## Phase 3 (search)
 
 - **All search logic is in SQL** (`004_search.sql`), so results, counts, facets and "closest matches" come from one set of

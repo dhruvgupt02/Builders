@@ -6,7 +6,7 @@ const BASE =
 const control = (error?: string) => `${BASE} ${error ? 'ring-brand-dark' : 'ring-ink/25'}`
 
 interface FieldProps {
-  label?: string
+  label?: ReactNode
   hint?: string
   /** Validation message; shown in place of the hint and announced to screen readers. */
   error?: string

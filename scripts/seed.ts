@@ -2,9 +2,10 @@
 import { randomUUID } from 'node:crypto'
 import { adminClient } from './env.js'
 import { isExternalMedia, mirrorMedia } from './media.js'
+import { SAMPLE_BRANDS, seedBriefs } from './seed-briefs.js'
 import {
-  TOOLS, SPECIALIZATIONS, SKILLS, CONTENT_TYPES, ASPECT_RATIOS, USAGE_PLATFORMS,
-  type Tool, type Specialization, type Skill, type ContentType, type AspectRatio, type UsagePlatform,
+  TOOLS, SPECIALIZATIONS, SKILLS, ASPECT_RATIOS,
+  type Tool, type Specialization, type Skill, type ContentType, type AspectRatio,
   type CommercialUseStatus,
 } from '../src/lib/taxonomy.js'
 
@@ -216,66 +217,6 @@ function aspectFor(ct: ContentType, c: CreatorSeed): AspectRatio {
   return pick(ASPECT_RATIOS)
 }
 
-// ───────────── briefs ─────────────
-interface BriefSeed {
-  title: string; goal: string; raw_idea: string; content_type: ContentType; style_tags: string[]; mood: string
-  aspect_ratios: AspectRatio[]; duration_sec: number | null; deliverables_count: number; budget: [number, number]
-  deadline_days: number; revision_rounds: number; required_tools: Tool[]
-  rights: { usage_platforms: UsagePlatform[]; territory: string; rights_duration: string; exclusivity: boolean
-    ai_likeness_allowed: boolean; ai_voice_allowed: boolean; requires_tool_commercial_licence: boolean; credit_required: boolean }
-}
-interface BrandSeed { company_name: string; category: string; website: string; demo?: boolean; briefs: BriefSeed[] }
-
-const BRANDS: BrandSeed[] = [
-  { company_name: 'Diya & Wick Candles', category: 'Home fragrance', website: 'https://example.com/diyawick', demo: true, briefs: [
-    { title: 'Diwali collection launch reel', goal: 'Drive pre-orders for our Diwali scented candle collection.',
-      raw_idea: 'Warm, glowing candles in a dark room, marigolds, slow camera push-ins, ends on the gift box.',
-      content_type: 'Video', style_tags: ['festive', 'warm tones', 'cinematic'], mood: 'Cosy and celebratory',
-      aspect_ratios: ['9:16', '1:1'], duration_sec: 30, deliverables_count: 3, budget: [20000, 45000], deadline_days: 21, revision_rounds: 2,
-      required_tools: ['Kling', 'Midjourney'],
-      rights: { usage_platforms: ['Organic social', 'Paid social ads'], territory: 'India', rights_duration: '12 months', exclusivity: false,
-        ai_likeness_allowed: false, ai_voice_allowed: true, requires_tool_commercial_licence: true, credit_required: false } },
-    { title: 'Product stills for website refresh', goal: 'Replace our homepage and product page imagery.',
-      raw_idea: 'Minimal, earthy flat-lays of each candle with natural textures — linen, stone, dried flowers.',
-      content_type: 'Image', style_tags: ['minimal', 'earthy'], mood: 'Calm', aspect_ratios: ['4:5', '16:9'], duration_sec: null,
-      deliverables_count: 12, budget: [8000, 20000], deadline_days: 14, revision_rounds: 1, required_tools: ['Flux'],
-      rights: { usage_platforms: ['Website', 'Organic social', 'Print'], territory: 'Worldwide', rights_duration: 'Perpetual', exclusivity: true,
-        ai_likeness_allowed: false, ai_voice_allowed: false, requires_tool_commercial_licence: true, credit_required: false } },
-  ] },
-  { company_name: 'Neem & Nectar Skincare', category: 'Beauty', website: 'https://example.com/neemnectar', briefs: [
-    { title: 'Vitamin C serum hero ad', goal: 'Launch our new serum with a premium 20s ad for YouTube and Instagram.',
-      raw_idea: 'Macro shots of serum drops, glowing skin, citrus slices, soft morning light.',
-      content_type: 'Video', style_tags: ['luxury', 'pastel', 'minimal'], mood: 'Fresh and radiant', aspect_ratios: ['16:9', '9:16'],
-      duration_sec: 20, deliverables_count: 2, budget: [30000, 70000], deadline_days: 30, revision_rounds: 3, required_tools: ['Runway', 'DaVinci Resolve'],
-      rights: { usage_platforms: ['YouTube ads', 'Paid social ads', 'Website'], territory: 'India', rights_duration: '24 months', exclusivity: true,
-        ai_likeness_allowed: true, ai_voice_allowed: true, requires_tool_commercial_licence: true, credit_required: false } },
-  ] },
-  { company_name: 'Third Wave Adda Café', category: 'Food & beverage', website: 'https://example.com/adda', briefs: [
-    { title: 'Monsoon menu social pack', goal: 'Promote our monsoon specials across Instagram for a month.',
-      raw_idea: 'Rain on windows, steaming chai and pakoras, cosy café corners, playful typography.',
-      content_type: 'Video', style_tags: ['playful', 'warm tones', 'vibrant'], mood: 'Cosy rainy-day', aspect_ratios: ['9:16'],
-      duration_sec: 15, deliverables_count: 6, budget: [6000, 15000], deadline_days: 10, revision_rounds: 1, required_tools: [],
-      rights: { usage_platforms: ['Organic social'], territory: 'India', rights_duration: '6 months', exclusivity: false,
-        ai_likeness_allowed: false, ai_voice_allowed: false, requires_tool_commercial_licence: false, credit_required: true } },
-  ] },
-  { company_name: 'GyaanSetu Learning', category: 'Edtech', website: 'https://example.com/gyaansetu', briefs: [
-    { title: 'Course trailer with AI presenter', goal: 'Explain our new JEE maths course in under 90 seconds, in Hindi and English.',
-      raw_idea: 'Friendly presenter, animated equations, student success moments, clear call to action.',
-      content_type: 'Animation', style_tags: ['playful', 'minimal'], mood: 'Encouraging', aspect_ratios: ['16:9', '9:16'],
-      duration_sec: 90, deliverables_count: 2, budget: [15000, 40000], deadline_days: 25, revision_rounds: 2, required_tools: ['HeyGen', 'ElevenLabs'],
-      rights: { usage_platforms: ['YouTube ads', 'Organic social', 'Website'], territory: 'India', rights_duration: '12 months', exclusivity: false,
-        ai_likeness_allowed: true, ai_voice_allowed: true, requires_tool_commercial_licence: true, credit_required: false } },
-  ] },
-  { company_name: 'Kurta Kulture', category: 'Apparel', website: 'https://example.com/kurtakulture', briefs: [
-    { title: 'Festive lookbook and billboard key visual', goal: 'Create a festive-season lookbook and one billboard visual for Mumbai and Delhi.',
-      raw_idea: 'Models in handloom kurtas in heritage locations — havelis, ghats — rich jewel tones.',
-      content_type: 'Image', style_tags: ['festive', 'luxury', 'cinematic'], mood: 'Regal', aspect_ratios: ['4:5', '16:9'],
-      duration_sec: null, deliverables_count: 10, budget: [25000, 60000], deadline_days: 28, revision_rounds: 2, required_tools: ['Midjourney'],
-      rights: { usage_platforms: ['OOH/billboards', 'Print', 'Organic social', 'Paid social ads'], territory: 'India', rights_duration: '12 months',
-        exclusivity: true, ai_likeness_allowed: true, ai_voice_allowed: false, requires_tool_commercial_licence: true, credit_required: false } },
-  ] },
-]
-
 // ───────────── taxonomy guard ─────────────
 function assertIn(list: readonly string[], values: string[], what: string) {
   for (const v of values) if (!list.includes(v)) throw new Error(`Invalid ${what}: ${v}`)
@@ -284,10 +225,6 @@ for (const c of CREATORS) {
   assertIn(TOOLS, c.tools, 'tool'); assertIn(SPECIALIZATIONS, c.specializations, 'specialization'); assertIn(SKILLS, c.skills, 'skill')
   if (c.tools.length < 3 || c.tools.length > 6) throw new Error(`${c.name}: needs 3-6 tools`)
   if (c.skills.length < 2 || c.skills.length > 4) throw new Error(`${c.name}: needs 2-4 skills`)
-}
-for (const b of BRANDS) for (const br of b.briefs) {
-  assertIn(CONTENT_TYPES, [br.content_type], 'content type'); assertIn(ASPECT_RATIOS, br.aspect_ratios, 'aspect ratio')
-  assertIn(TOOLS, br.required_tools, 'tool'); assertIn(USAGE_PLATFORMS, br.rights.usage_platforms, 'usage platform')
 }
 
 // ───────────── helpers ─────────────
@@ -323,9 +260,13 @@ async function main() {
   const brandUserId = await ensureUser(DEMO_BRAND_EMAIL, 'brand', 'Demo Brand')
   const creatorUserId = await ensureUser(DEMO_CREATOR_EMAIL, 'creator', CREATORS[0].name)
 
+  if (process.argv.includes('--briefs-only')) {
+    const n = await seedBriefs(db, brandUserId, DRY_RUN)
+    console.log(`Refreshed ${SAMPLE_BRANDS.length} sample brands and ${n} briefs. Creators were left untouched.`)
+    return
+  }
+
   console.log('Removing previous sample data…')
-  check(await db.from('brands').delete().in('company_name', BRANDS.map((b) => b.company_name)), 'delete sample brands')
-  check(await db.from('brands').delete().eq('profile_id', brandUserId), 'delete demo brand data')
   check(await db.from('creators').delete().eq('profile_id', creatorUserId), 'delete demo creator data')
   check(await db.from('creators').delete().eq('is_sample', true), 'delete sample creators')
 
@@ -431,28 +372,10 @@ async function main() {
   await insertChunked('verifications', verificationRows)
 
   console.log('Inserting brands and briefs…')
-  let briefCount = 0
-  for (const b of BRANDS) {
-    const brandId = randomUUID()
-    check(await db.from('brands').insert({
-      id: brandId, profile_id: b.demo ? brandUserId : null, company_name: b.company_name, category: b.category, website: b.website,
-    }), 'insert brand')
-    for (const br of b.briefs) {
-      const briefId = randomUUID()
-      const deadline = new Date(Date.now() + br.deadline_days * 86400000).toISOString().slice(0, 10)
-      check(await db.from('briefs').insert({
-        id: briefId, brand_id: brandId, title: br.title, goal: br.goal, raw_idea: br.raw_idea, content_type: br.content_type,
-        style_tags: br.style_tags, mood: br.mood, reference_links: [], aspect_ratios: br.aspect_ratios, duration_sec: br.duration_sec,
-        deliverables_count: br.deliverables_count, budget_min: br.budget[0], budget_max: br.budget[1], deadline,
-        revision_rounds: br.revision_rounds, required_tools: br.required_tools, status: 'open',
-      }), 'insert brief')
-      check(await db.from('brief_rights').insert({ brief_id: briefId, ...br.rights }), 'insert brief rights')
-      briefCount++
-    }
-  }
+  const briefCount = await seedBriefs(db, brandUserId, DRY_RUN)
 
   console.log(`\nSeeded ${creatorRows.length} creators, ${itemRows.length} portfolio items, ${stepRows.length} workflow steps,`)
-  console.log(`${verificationRows.length} verifications, ${BRANDS.length} brands, ${briefCount} briefs.`)
+  console.log(`${verificationRows.length} verifications, ${SAMPLE_BRANDS.length} brands, ${briefCount} briefs.`)
   if (DRY_RUN) {
     console.log('[dry run] sample portfolio item:', JSON.stringify(itemRows[0], null, 2))
     console.log('[dry run] its steps:', stepRows.filter((r: any) => r.portfolio_item_id === (itemRows[0] as any).id))

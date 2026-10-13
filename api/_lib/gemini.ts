@@ -61,13 +61,25 @@ function isUnavailable(err: unknown) {
   return isRetryable(err) || /abort|timed? ?out/i.test((err as Error)?.message ?? '')
 }
 
-function callModel(model: string, system: string | undefined, prompt: string) {
+export interface GenerateOptions {
+  prompt: string
+  system?: string
+  label?: string
+  /** Cap for each attempt, in ms (default 8s). JSON-mode calls with a large schema need longer. */
+  attemptMs?: number
+  /** Cap for attempts on the fallback model, if it should differ (it is the last resort, so it can be given longer). */
+  fallbackAttemptMs?: number
+  /** Extra generation config, e.g. { responseMimeType: 'application/json', responseSchema } for JSON mode. */
+  config?: Record<string, unknown>
+}
+
+function callModel(model: string, opts: GenerateOptions, ms: number) {
   // An overloaded model can leave the request hanging with no response at all, so every attempt is capped.
-  const signal = AbortSignal.timeout(ATTEMPT_MS)
-  const call = getGemini().models.generateContent({ model, contents: prompt, config: { systemInstruction: system, temperature: 0.7, abortSignal: signal } })
+  const signal = AbortSignal.timeout(ms)
+  const call = getGemini().models.generateContent({ model, contents: opts.prompt, config: { systemInstruction: opts.system, temperature: 0.7, ...opts.config, abortSignal: signal } })
   call.catch(() => {})
   const limit = new Promise<never>((_, reject) =>
-    signal.addEventListener('abort', () => reject(new Error(`UNAVAILABLE: ${model} did not answer within ${ATTEMPT_MS / 1000}s`))),
+    signal.addEventListener('abort', () => reject(new Error(`UNAVAILABLE: ${model} did not answer within ${ms / 1000}s`))),
   )
   return Promise.race([call, limit])
 }
@@ -76,7 +88,7 @@ function callModel(model: string, system: string | undefined, prompt: string) {
  * Generates text with GEMINI_MODEL, falling back to the lite model if the first one is overloaded,
  * rate limited or silent. Returns the text and the model that actually answered.
  */
-export async function generateText(opts: { prompt: string; system?: string; label?: string }): Promise<{ text: string; model: string }> {
+export async function generateText(opts: GenerateOptions): Promise<{ text: string; model: string }> {
   const label = opts.label ?? 'gemini'
   let lastError: unknown
   const models = [...new Set([chatModel(), fallbackModel()])]
@@ -85,7 +97,8 @@ export async function generateText(opts: { prompt: string; system?: string; labe
     try {
       for (let attempt = 0; ; attempt++) {
         try {
-          const text = (await callModel(model, opts.system, opts.prompt)).text?.trim()
+          const ms = (model === chatModel() ? opts.attemptMs : (opts.fallbackAttemptMs ?? opts.attemptMs)) ?? ATTEMPT_MS
+          const text = (await callModel(model, opts, ms)).text?.trim()
           if (!text) throw new Error(`UNAVAILABLE: ${model} returned an empty response`)
           return { text, model }
         } catch (err) {

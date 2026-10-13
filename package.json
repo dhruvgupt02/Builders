@@ -14,7 +14,8 @@
     "mirror-media": "tsx scripts/mirror-media.ts",
     "migrate": "tsx scripts/migrate.ts",
     "migrate:verify": "tsx scripts/verify-migrations.ts",
-    "test:search": "tsx scripts/test-search.ts"
+    "test:search": "tsx scripts/test-search.ts",
+    "test:briefs": "tsx scripts/test-brief-builder.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

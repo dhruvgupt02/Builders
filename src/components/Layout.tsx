@@ -4,12 +4,16 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import { ArrowIcon, Button } from './ui'
 
-const BASE_LINKS = [
-  { to: '/', label: 'Home' },
-  { to: '/creators', label: 'Discover creators' },
-  { to: '/briefs/new', label: 'Create brief' },
-]
-const CREATOR_LINK = { to: '/dashboard/creator', label: 'My dashboard' }
+const HOME = { to: '/', label: 'Home' }
+const DISCOVER = { to: '/creators', label: 'Discover creators' }
+const CREATE = { to: '/briefs/new', label: 'Create brief' }
+
+// Brands write briefs; creators browse them. Logged-out visitors see the brand path.
+const LINKS = {
+  guest: [HOME, DISCOVER, CREATE],
+  brand: [HOME, DISCOVER, CREATE, { to: '/dashboard/brand', label: 'My briefs' }],
+  creator: [HOME, DISCOVER, { to: '/briefs', label: 'Open briefs' }, { to: '/dashboard/creator', label: 'My dashboard' }],
+}
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `text-[15px] font-medium transition-colors underline-offset-8 decoration-2 decoration-brand ${
@@ -37,7 +41,7 @@ export default function Layout() {
     navigate('/')
   }
 
-  const links = role === 'creator' ? [...BASE_LINKS, CREATOR_LINK] : BASE_LINKS
+  const links = LINKS[session ? (role ?? 'guest') : 'guest']
   const authButton = session ? (
     <Button variant="dark" onClick={logout} icon={<ArrowIcon />}>Log out</Button>
   ) : (
@@ -95,6 +99,7 @@ export default function Layout() {
           <div className="flex flex-wrap gap-x-7 gap-y-2 text-sm font-medium">
             <Link to="/creators" className="hover:text-cream">Discover creators</Link>
             <Link to="/briefs/new" className="hover:text-cream">Create brief</Link>
+            <Link to="/briefs" className="hover:text-cream">Open briefs</Link>
             <Link to={role === 'creator' ? '/dashboard/creator' : '/onboarding/creator'} className="hover:text-cream">
               {role === 'creator' ? 'Creator dashboard' : 'Join as creator'}
             </Link>

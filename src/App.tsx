@@ -6,7 +6,9 @@ import CreatorProfile from './pages/CreatorProfile'
 import PortfolioViewer from './pages/PortfolioViewer'
 import PortfolioForm from './pages/PortfolioForm'
 import CreatorDashboard from './pages/CreatorDashboard'
-import BriefNew from './pages/BriefNew'
+import BriefEditor from './pages/BriefEditor'
+import BriefsBoard from './pages/BriefsBoard'
+import BrandDashboard from './pages/BrandDashboard'
 import BriefView from './pages/BriefView'
 import Login from './pages/Login'
 import CreatorOnboarding from './pages/CreatorOnboarding'
@@ -23,7 +25,10 @@ export default function App() {
         <Route path="/portfolio/:id/edit" element={<PortfolioForm key="edit" />} />
         <Route path="/portfolio/:id" element={<PortfolioViewer />} />
         <Route path="/dashboard/creator" element={<CreatorDashboard />} />
-        <Route path="/briefs/new" element={<BriefNew />} />
+        <Route path="/briefs" element={<BriefsBoard />} />
+        <Route path="/briefs/new" element={<BriefEditor key="new" />} />
+        <Route path="/briefs/:id/edit" element={<BriefEditor key="edit" />} />
+        <Route path="/dashboard/brand" element={<BrandDashboard />} />
         <Route path="/briefs/:id" element={<BriefView />} />
         <Route path="/login" element={<Login />} />
         <Route path="/onboarding/creator" element={<CreatorOnboarding />} />

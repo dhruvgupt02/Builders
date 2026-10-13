@@ -86,7 +86,7 @@ export default function Login() {
           Try the marketplace in one click with a demo account, or use your own.
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
-          <Button size="lg" icon={<ArrowIcon />} disabled={busy !== null} onClick={() => signIn(DEMO_USERS.brand, DEMO_PASSWORD, 'brand', '/briefs/new')}>
+          <Button size="lg" icon={<ArrowIcon />} disabled={busy !== null} onClick={() => signIn(DEMO_USERS.brand, DEMO_PASSWORD, 'brand', '/dashboard/brand')}>
             {busy === 'brand' ? 'Signing in…' : 'Try as brand'}
           </Button>
           <Button size="lg" variant="dark" icon={<ArrowIcon />} disabled={busy !== null} onClick={() => signIn(DEMO_USERS.creator, DEMO_PASSWORD, 'creator')}>

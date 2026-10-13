@@ -80,11 +80,11 @@ Phase 2 added these shared pieces: `VerificationBadges` (the three trust badges 
 blue tick when verified), `Lightbox`, and in `components/ui`: `Field`, `Textarea`, `ChipPicker`, `TagInput`, `FileDrop`, `Notice`. Phase 3 added `Switch` and, in `components/search`,
 `FilterPanel`, `SearchResultCard` (thumbnail strip at true aspect ratios) and `EmptyResults`.
 
-### Pages not built yet
+Phase 4 added, in `components/brief`: `AspectShape` / `AspectPicker` (aspect ratios drawn as shapes), `BriefSummary`
+(the whole brief laid out for reading) and `BriefCard`.
 
-There is **no dedicated reference image** for these. Until one is added, follow the patterns below, all taken
-from `01-landing-hero.webp`.
-
-| Page | Follow this |
+| Page | Notes |
 | --- | --- |
-| Brief form (`/briefs/new`) | Same building blocks as the portfolio form. Two columns on desktop: form sections in cream `Card`s on the left, and a sticky ink `Card` on the right summarising the brief and commercial-use rights (same style as the rights card on the brief view). Usage platforms and aspect ratios with `ChipPicker`. |
+| Brief editor (`/briefs/new`, `/briefs/:id/edit`) | Two start cards (ink for AI, cream for manual). Five steps with a bar per step. Cream form `Card` on the left; sticky sidebar with the completeness meter, ink "Quick questions" card, assumptions and AI controls. Blue "AI suggested" marker beside untouched AI fields. |
+| Brief view (`/briefs/:id`) | Ink title card, `BriefSummary`, ink "In plain English" rights card, sidebar with the search button and owner controls. |
+| Brand dashboard, Open briefs board | `BriefCard` grid with an ink footer strip (budget, deadline, deliverables); `Tabs` by status on the dashboard, toggle chips with counts on the board. |
